@@ -88,6 +88,16 @@ body{font-family:-apple-system,"Microsoft YaHei","Segoe UI",sans-serif;backgroun
 .simple-select-cell input{display:none}
 .simple-select-cell .input-toggle{font-size:10px;color:var(--text-muted);cursor:pointer;border:none;background:none;padding:2px 6px;border-radius:4px;white-space:nowrap}
 .simple-select-cell .input-toggle:hover{background:#e2e8f0;color:var(--text)}
+.multi-toggle{display:inline-block;font-size:10px;color:var(--text-muted);cursor:pointer;border:1px solid var(--border);background:#f8fafc;padding:1px 6px;border-radius:10px;white-space:nowrap;transition:all 0.15s;margin-left:4px;vertical-align:middle;font-weight:400}
+.multi-toggle:hover{background:#ede9fe;color:#7c3aed;border-color:#c4b5fd}
+.multi-toggle.on{background:#ede9fe;color:#7c3aed;border-color:#a78bfa;font-weight:600}
+.multi-checkboxes{display:flex;flex-wrap:wrap;gap:4px 8px;padding:2px 0}
+.multi-checkboxes label{display:inline-flex;align-items:center;gap:3px;font-size:12px;cursor:pointer;padding:1px 4px;border-radius:3px;transition:all 0.1s}
+.multi-checkboxes label:hover{background:#f1f5f9}
+.multi-checkboxes input[type="checkbox"]{cursor:pointer;accent-color:var(--primary)}
+.multi-check-actions{display:flex;gap:6px;margin-bottom:2px}
+.multi-check-actions button{font-size:10px;padding:1px 6px;border:1px solid var(--border);border-radius:4px;background:#fff;color:var(--text-secondary);cursor:pointer;transition:all 0.15s}
+.multi-check-actions button:hover{background:var(--primary-light);color:var(--primary);border-color:var(--primary)}
 .compound-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .compound-field{display:flex;flex-direction:column;gap:1px;min-width:0}
 .compound-field-label{font-size:9px;color:var(--text-muted);white-space:nowrap}
@@ -197,7 +207,7 @@ body{font-family:-apple-system,"Microsoft YaHei","Segoe UI",sans-serif;backgroun
 const APP_CONFIG = {"materials": ["物料1"], "modules": []};
 
 const AUTOSAVE_KEY='solutionConfig_v3';
-let activeMaterial=0,selections={},remarks={},simpleManual={};
+let activeMaterial=0,selections={},remarks={},simpleManual={},multiSelect={};
 const APP_CONFIG_DEFAULT=APP_CONFIG;
 let MATERIALS=APP_CONFIG_DEFAULT.materials;
 let MODULES=APP_CONFIG_DEFAULT.modules;
@@ -206,7 +216,7 @@ function makeKey(mi,ii){return mi+'-'+ii}
 
 function init(){
 loadCustomConfig();
-try{const s=localStorage.getItem(AUTOSAVE_KEY);if(s){const st=JSON.parse(s);if(st.selections)selections=st.selections;if(st.remarks)remarks=st.remarks;if(st.activeMaterial!==undefined)activeMaterial=st.activeMaterial;if(st.materials&&Array.isArray(st.materials)&&st.materials.length)MATERIALS=st.materials}}catch(e){}
+try{const s=localStorage.getItem(AUTOSAVE_KEY);if(s){const st=JSON.parse(s);if(st.selections)selections=st.selections;if(st.remarks)remarks=st.remarks;if(st.activeMaterial!==undefined)activeMaterial=st.activeMaterial;if(st.materials&&Array.isArray(st.materials)&&st.materials.length)MATERIALS=st.materials;if(st.multiSelect)multiSelect=st.multiSelect}}catch(e){}
 initMaterialTabs();renderCurrent();updateStats();
 setInterval(autoSave,10000);window.addEventListener('beforeunload',autoSave);
 }
@@ -318,7 +328,7 @@ mod.items.forEach((it,ii)=>{
 const key=makeKey(mi,ii);const v=ms[key];
 const itl=escHtml(it.item).toLowerCase();const all=getAllItemText(it).toLowerCase();
 h+='<tr data-key="'+key+'" data-item="'+itl+'" data-all="'+all+'">';
-h+='<td class="item-label">'+escHtml(it.item)+(it.compound?'<span class="compound-badge">◆分支</span>':'')+'</td>';
+h+='<td class="item-label">'+escHtml(it.item)+(it.compound?'<span class="compound-badge">◆分支</span>':' <span class="multi-toggle'+(multiSelect[key]?' on':'')+'" onclick="toggleMulti(\''+key+'\','+mi+','+ii+')">'+(multiSelect[key]?'☑':'☐')+' 多选</span>')+'</td>';
 h+='<td class="item-fields">';
 if(it.compound)h+=renderCpd(it,mi,ii,v);
 else h+=renderSimple(it,mi,ii,v);
@@ -330,11 +340,28 @@ h+='</tbody></table></div></div>'
 c.innerHTML=h
 }
 
-function isFilled(v){if(!v)return false;if(typeof v==='string')return v!=='';if(typeof v==='object'&&v.fields)return v.fields.some(f=>f!=='');return false}
+function isFilled(v){if(!v)return false;if(Array.isArray(v))return v.length>0;if(typeof v==='string')return v!=='';if(typeof v==='object'&&v.fields)return v.fields.some(f=>f!=='');return false}
 function getAllItemText(it){let t=it.item;it.options.forEach(o=>{t+=' '+o});return t}
 
 function renderSimple(it,mi,ii,v){
-const key=makeKey(mi,ii);const val=typeof v==='string'?v:'';const isM=simpleManual[key]||(val&&!it.options.includes(val));
+const key=makeKey(mi,ii);const isMulti=!!multiSelect[key];
+if(isMulti){
+const arr=Array.isArray(v)?v:[];
+let h='<div class="multi-check-actions">';
+h+='<button onclick="multiCheckAll(\''+key+'\','+it.options.length+',true)">全选</button>';
+h+='<button onclick="multiCheckAll(\''+key+'\','+it.options.length+',false)">取消全选</button>';
+h+='</div>';
+h+='<div class="multi-checkboxes" id="mc-'+key+'">';
+it.options.forEach((o,i)=>{h+='<label><input type="checkbox" value="'+escAttr(o)+'" onchange="onMultiCheck(\''+key+'\')"'+(arr.includes(o)?' checked':'')+'>'+escHtml(o)+'</label>'});
+h+='</div>';
+// Also keep manual input for custom values
+h+='<div style="display:flex;align-items:center;gap:4px;margin-top:2px">';
+const manualVal=arr.filter(x=>!it.options.includes(x)).join('、');
+h+='<input type="text" style="flex:1;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px" value="'+escAttr(manualVal)+'" placeholder="手动补充，用、分隔..." onchange="onMultiManual(\''+key+'\',this.value,\''+it.options.map(o=>escAttr(o)).join('\\t')+'\')">';
+h+='</div>';
+return h
+}
+const val=typeof v==='string'?v:'';const isM=simpleManual[key]||(val&&!it.options.includes(val));
 let h='<div class="simple-select-cell">';
 h+='<select id="sel-'+key+'" class="'+(val?'filled':'')+'" onchange="onSimpleSel(\''+key+'\',this.value)"'+(isM?' style="display:none"':'')+'>';
 h+='<option value="">-- 请选择 --</option>';
@@ -397,8 +424,43 @@ return all.filter(v=>vs.has(v))
 
 function buildCpdResult(cpd,fields){if(fields.every(f=>f===''))return null;return cpd.model_lookup[fields.join('|')]||null}
 
-function onSimpleSel(key,val){simpleManual[key]=false;const ms=getMatSelections(activeMaterial);ms[key]=val;updateStats();autoSave()}
-function onSimpleInp(key,val){simpleManual[key]=true;const ms=getMatSelections(activeMaterial);ms[key]=val;updateStats();autoSave()}
+function toggleMulti(key,mi,ii){
+multiSelect[key]=!multiSelect[key];
+// Clear current value when switching to multi-select
+if(multiSelect[key]){const ms=getMatSelections(activeMaterial);if(typeof ms[key]==='string')ms[key]=[]}
+else{const ms=getMatSelections(activeMaterial);if(Array.isArray(ms[key]))ms[key]=ms[key].join('、')}
+renderCurrent();updateStats();autoSave()
+}
+function onMultiCheck(key){
+const cbs=document.querySelectorAll('#mc-'+key+' input[type="checkbox"]');
+const arr=[];cbs.forEach(cb=>{if(cb.checked)arr.push(cb.value)});
+const ms=getMatSelections(activeMaterial);
+// Preserve manual entries
+const old=ms[key];const manualVals=(Array.isArray(old)?old:[]).filter(x=>{
+let found=false;cbs.forEach(cb=>{if(cb.value===x)found=true});return !found
+});
+ms[key]=arr.concat(manualVals);
+updateStats();autoSave()
+}
+function multiCheckAll(key,n,checked){
+const cbs=document.querySelectorAll('#mc-'+key+' input[type="checkbox"]');
+const arr=[];cbs.forEach(cb=>{cb.checked=checked;if(checked)arr.push(cb.value)});
+const ms=getMatSelections(activeMaterial);
+const old=ms[key];const manualVals=(Array.isArray(old)?old:[]).filter(x=>{
+let found=false;cbs.forEach(cb=>{if(cb.value===x)found=true});return !found
+});
+ms[key]=checked?arr.concat(manualVals):manualVals;
+updateStats();autoSave()
+}
+function onMultiManual(key,val,optsStr){
+const opts=optsStr.split('\t');const ms=getMatSelections(activeMaterial);
+const manualParts=val?val.split(/[、,]/).map(s=>s.trim()).filter(Boolean):[];
+// Get checked options
+const cbs=document.querySelectorAll('#mc-'+key+' input[type="checkbox"]:checked');
+const checked=[];cbs.forEach(cb=>checked.push(cb.value));
+ms[key]=checked.concat(manualParts);
+updateStats();autoSave()
+}
 function onRemarkChange(key,val){const mr=getMatRemarks(activeMaterial);mr[key]=val;autoSave()}
 function toggleSimple(key){simpleManual[key]=!simpleManual[key];const s=document.getElementById('sel-'+key);const i=document.getElementById('inp-'+key);if(!s||!i)return;if(s.style.display==='none'){s.style.display='';i.style.display='none'}else{s.style.display='none';i.style.display=''}}
 
@@ -531,7 +593,7 @@ MATERIALS.forEach((mat,matIdx)=>{
 const ms=getMatSelections(matIdx);const mr=getMatRemarks(matIdx);const rows=[];
 const merges=[];const pi=[['模块','变量','参数','备注']];
 const hdrLen=pi.length;
-MODULES.forEach((mod,mi)=>{const sr=rows.length;mod.items.forEach((it,ii)=>{const key=makeKey(mi,ii);const v=ms[key];let vs='';if(v){if(typeof v==='string'){vs=v}else if(v.fields){vs=v.fields.join('+');if(it.compound){const m=buildCpdResult(it.compound,v.fields);if(m)vs=m+':'+vs}}}const rm=mr[key]||'';rows.push([ii===0?mod.module:'',it.item,vs,rm])});if(mod.items.length>1)merges.push({s:{r:hdrLen+sr,c:0},e:{r:hdrLen+sr+mod.items.length-1,c:0}})});
+MODULES.forEach((mod,mi)=>{const sr=rows.length;mod.items.forEach((it,ii)=>{const key=makeKey(mi,ii);const v=ms[key];const rm=mr[key]||'';if(v&&Array.isArray(v)&&v.length>0){const vsr=rows.length;v.forEach((val,vi)=>{const mc=(ii===0&&vi===0)?mod.module:'';rows.push([mc,it.item,val,vi===0?rm:''])});const vnr=rows.length-vsr;if(vnr>1)merges.push({s:{r:hdrLen+vsr,c:1},e:{r:hdrLen+vsr+vnr-1,c:1}})}else{let vs='';if(v){if(Array.isArray(v)){vs=v.join('、')}else if(typeof v==='string'){vs=v}else if(v.fields){vs=v.fields.join('+');if(it.compound){const m=buildCpdResult(it.compound,v.fields);if(m)vs=m+':'+vs}}}rows.push([ii===0?mod.module:'',it.item,vs,rm])}});const nr=rows.length-sr;if(nr>1)merges.push({s:{r:hdrLen+sr,c:0},e:{r:hdrLen+sr+nr-1,c:0}})});
 const data=[...pi,...rows];const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=[{wch:26},{wch:38},{wch:70},{wch:40}];
 if(merges.length)ws['!merges']=merges;
 const sn=mat.replace(/[\\\/\*\?\:\[\]]/g,'').substring(0,31);XLSX.utils.book_append_sheet(wb,ws,sn)
@@ -548,14 +610,14 @@ sns.forEach(sn=>{let matIdx=-1;for(let i=0;i<MATERIALS.length;i++){if(sn.startsW
 const ws=wb.Sheets[sn];const json=XLSX.utils.sheet_to_json(ws,{header:1});const ms=getMatSelections(matIdx);const mr=getMatRemarks(matIdx);
 let sr=-1;for(let i=0;i<json.length;i++){if(json[i]&&json[i][0]==='模块'&&json[i][1]==='变量'){sr=i+1;break}}if(sr<0)return;
 let imp=0,prevMod='';for(let i=sr;i<json.length;i++){const row=json[i];if(!row||row.length<2)continue;let mn=String(row[0]||'').trim();if(!mn)mn=prevMod;else prevMod=mn;const in_=String(row[1]||'').trim();const vs=String(row[2]||'').trim();const rm=String(row[3]||'').trim();if(!mn||!in_)continue;const lk=mn+'|'+in_;const f=lm[lk];if(!f)continue;const key=makeKey(f.mi,f.ii);const it=MODULES[f.mi].items[f.ii];
-if(vs&&it.compound){let fields;if(vs.includes(':')){const parts=vs.split(':');fields=parts.slice(1).join(':').split('+')}else{fields=vs.split('+')}if(fields.length===it.compound.n_fields){ms[key]={fields:fields,manual:false}}else{ms[key]=vs}}else if(vs){ms[key]=vs}
+if(vs&&it.compound){let fields;if(vs.includes(':')){const parts=vs.split(':');fields=parts.slice(1).join(':').split('+')}else{fields=vs.split('+')}if(fields.length===it.compound.n_fields){ms[key]={fields:fields,manual:false}}else{ms[key]=vs}}else if(vs){const ex=ms[key];if(ex!==undefined&&ex!==''){if(Array.isArray(ex)){if(!ex.includes(vs))ex.push(vs)}else{ms[key]=[ex,vs];multiSelect[key]=true}}else{if(multiSelect[key]){ms[key]=[vs]}else{ms[key]=vs}}}
 if(rm)mr[key]=rm;
 imp++}ti+=imp});
 renderCurrent();updateStats();autoSave();showToast('成功导入 '+ti+' 项配置，涵盖 '+sns.length+' 个物料')}catch(err){console.error(err);showToast('导入失败: '+err.message)}
 };r.readAsArrayBuffer(file);e.target.value=''
 }
 
-function autoSave(){try{const d={selections,remarks,activeMaterial,materials:MATERIALS};localStorage.setItem(AUTOSAVE_KEY,JSON.stringify(d));document.getElementById('autosaveTime').textContent='已暂存 '+new Date().toLocaleTimeString('zh-CN')}catch(e){}}
+function autoSave(){try{const d={selections,remarks,activeMaterial,materials:MATERIALS,multiSelect};localStorage.setItem(AUTOSAVE_KEY,JSON.stringify(d));document.getElementById('autosaveTime').textContent='已暂存 '+new Date().toLocaleTimeString('zh-CN')}catch(e){}}
 
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500)}
 function showModal(tt,m,cb){document.getElementById('modalTitle').textContent=tt;document.getElementById('modalMsg').textContent=m;document.getElementById('modalOverlay').classList.add('show');document.getElementById('modalConfirm').onclick=()=>{closeModal();cb()}}
