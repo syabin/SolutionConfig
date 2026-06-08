@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>溶液系统配置工具</title>
+<script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" onerror="console.warn('XLSX CDN failed')"></script>
+<style>
+:root{--primary:#2563eb;--primary-hover:#1d4ed8;--primary-light:#eff6ff;--danger:#dc2626;--danger-hover:#b91c1c;--success:#16a34a;--success-light:#f0fdf4;--warning:#f59e0b;--warning-light:#fffbeb;--bg:#f1f5f9;--card:#ffffff;--border:#e2e8f0;--text:#1e293b;--text-secondary:#64748b;--text-muted:#94a3b8}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"Microsoft YaHei","Segoe UI",sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.sticky-top{position:sticky;top:0;z-index:100;background:var(--bg);box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.header-left{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.header h1{font-size:17px;font-weight:700;color:var(--text);white-space:nowrap}
+.header-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.header-meta input,.header-meta textarea{border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;color:var(--text);background:#f8fafc;outline:none;transition:border-color 0.15s}
+.header-meta input:focus,.header-meta textarea:focus{border-color:var(--primary);background:#fff}
+.header-meta input{width:120px}
+.header-meta textarea{width:160px;height:26px;resize:none;overflow:hidden}
+.header-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s;white-space:nowrap;font-family:inherit}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-hover)}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{background:var(--danger-hover)}
+.btn-outline{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.btn-outline:hover:not(:disabled){background:var(--bg)}.btn-outline:disabled{opacity:0.4;cursor:not-allowed}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{background:#15803d}
+.btn-sm{padding:3px 8px;font-size:11px}
+.header-sep{width:1px;height:20px;background:var(--border);margin:0 3px;flex-shrink:0}
+.material-tabs{background:var(--card);border-bottom:1px solid var(--border);padding:0 20px;display:flex;gap:2px;overflow-x:auto}
+.material-tab{padding:10px 16px;border:none;background:none;font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap;font-family:inherit;position:relative}
+.material-tab:hover{color:var(--text);background:#f8fafc}
+.material-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.material-tab .tab-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.material-tab .tab-dot.done{background:var(--success)}
+.material-tab .tab-dot.partial{background:var(--warning)}
+.material-tab .tab-dot.empty{background:var(--text-muted)}
+.material-tab .tab-del{display:none;margin-left:4px;font-size:12px;color:var(--text-muted);cursor:pointer;line-height:1;padding:0 2px;border-radius:3px;transition:all 0.15s}
+.material-tab:hover .tab-del{display:inline}
+.material-tab .tab-del:hover{color:var(--danger);background:#fee2e2}
+.material-tab .tab-del.hide{display:none!important}
+.tab-add-btn{padding:10px 10px;border:none;background:none;font-size:16px;font-weight:700;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap;font-family:inherit;line-height:1}
+.tab-add-btn:hover{color:var(--primary);background:#eff6ff}
+.tab-rename-inp{padding:2px 6px;border:1px solid var(--primary);border-radius:4px;font-size:12px;font-family:inherit;color:var(--text);background:#fff;outline:none;width:100px}
+.info-bar{background:var(--card);border-bottom:1px solid var(--border);padding:7px 20px;display:flex;gap:16px;font-size:12px;color:var(--text-secondary);align-items:center;flex-wrap:wrap}
+.info-bar .count-num{font-weight:600;color:var(--primary)}
+.progress-wrap{display:flex;align-items:center;gap:6px;margin-left:auto}
+.progress-bar-outer{width:140px;height:7px;background:var(--border);border-radius:4px;overflow:hidden}
+.progress-bar-inner{height:100%;background:var(--success);border-radius:4px;transition:width 0.3s}
+.progress-text{font-size:11px;font-weight:600;color:var(--success);min-width:36px;text-align:right}
+.filter-bar{display:flex;align-items:center;gap:8px;padding:7px 20px;background:#f8fafc;border-bottom:1px solid var(--border)}
+.filter-bar input{flex:1;max-width:360px;border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:12px;font-family:inherit;outline:none;color:var(--text)}
+.filter-bar input:focus{border-color:var(--primary)}
+.filter-count{font-size:11px;color:var(--text-secondary);white-space:nowrap}
+.filter-clear{font-size:11px;color:var(--primary);cursor:pointer;border:none;background:none;white-space:nowrap}
+.filter-clear:hover{text-decoration:underline}
+.main-content{max-width:1600px;margin:0 auto;padding:16px 20px 40px}
+.accordion{margin-bottom:10px}
+.accordion-header{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.15s;user-select:none}
+.accordion-header:hover{border-color:var(--primary);background:#f8fafc}
+.accordion-header.open{border-radius:8px 8px 0 0;border-bottom-color:transparent;background:#f8fafc}
+.accordion-arrow{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-muted);transition:transform 0.2s;flex-shrink:0}
+.accordion-arrow.open{transform:rotate(90deg)}
+.accordion-title{font-size:13px;font-weight:600;color:var(--text);flex:1}
+.accordion-badge{font-size:10px;padding:1px 7px;border-radius:10px;font-weight:500}
+.badge-done{background:var(--success-light);color:var(--success)}
+.badge-partial{background:var(--warning-light);color:#b45309}
+.badge-empty{background:#f1f5f9;color:var(--text-muted)}
+.accordion-body{display:none;background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px}
+.accordion-body.open{display:block}
+.config-table{width:100%;border-collapse:collapse}
+.config-table tr.filtered-out{display:none}
+.config-table tr{border-bottom:1px solid #f1f5f9}
+.config-table tr:last-child{border-bottom:none}
+.config-table tr:hover{background:#f8fafc}
+.config-table td{padding:7px 12px;font-size:12px;vertical-align:top}
+.config-table .item-label{width:18%;font-weight:500;color:var(--text);padding-top:10px;word-break:break-all}
+.config-table .item-label .compound-badge{display:inline-block;font-size:9px;padding:0px 5px;border-radius:8px;background:#ede9fe;color:#7c3aed;margin-left:4px;vertical-align:middle;font-weight:400}
+.config-table .item-fields{width:57%}
+.config-table .item-remark{width:25%;padding-top:7px}
+.config-table .item-remark input{width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:inherit;color:var(--text);background:#fff;outline:none}
+.config-table .item-remark input:focus{border-color:var(--primary);box-shadow:0 0 0 1px rgba(37,99,235,0.1)}
+.simple-select-cell{display:flex;align-items:center;gap:6px}
+.simple-select-cell select,.simple-select-cell input[type="text"]{flex:1;padding:5px 28px 5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;color:var(--text);background:#fff;outline:none;transition:border-color 0.15s}
+.simple-select-cell select{cursor:pointer;appearance:none;-webkit-appearance:none;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E") no-repeat right 8px center}
+.simple-select-cell select:focus,.simple-select-cell input:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgba(37,99,235,0.1)}
+.simple-select-cell select.filled,.simple-select-cell input.filled{border-color:var(--success);background:#f0fdf4}
+.simple-select-cell input{display:none}
+.simple-select-cell .input-toggle{font-size:10px;color:var(--text-muted);cursor:pointer;border:none;background:none;padding:2px 6px;border-radius:4px;white-space:nowrap}
+.simple-select-cell .input-toggle:hover{background:#e2e8f0;color:var(--text)}
+.compound-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.compound-field{display:flex;flex-direction:column;gap:1px;min-width:0}
+.compound-field-label{font-size:9px;color:var(--text-muted);white-space:nowrap}
+.compound-field select,.compound-field input{padding:4px 24px 4px 6px;border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:inherit;color:var(--text);background:#fff;outline:none;transition:border-color 0.15s;min-width:60px}
+.compound-field select{cursor:pointer;appearance:none;-webkit-appearance:none;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394a3b8'/%3E%3C/svg%3E") no-repeat right 5px center}
+.compound-field select:focus,.compound-field input:focus{border-color:var(--primary);box-shadow:0 0 0 1px rgba(37,99,235,0.1)}
+.compound-sep{font-size:14px;color:var(--text-muted);font-weight:700;padding:0 2px;align-self:flex-end;margin-bottom:2px}
+.compound-result{font-size:10px;color:var(--primary);margin-left:8px;white-space:nowrap;min-width:60px;font-weight:500}
+.compound-result .model-name{font-weight:700}
+.cpd-input-toggle{font-size:9px;color:var(--text-muted);cursor:pointer;border:none;background:none;padding:0 4px;border-radius:3px;align-self:flex-end;margin-bottom:1px}
+.cpd-input-toggle:hover{background:#e2e8f0;color:var(--text)}
+.cpd-preset{padding:4px 24px 4px 6px;border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:inherit;color:var(--text);background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394a3b8'/%3E%3C/svg%3E") no-repeat right 5px center;cursor:pointer;appearance:none;-webkit-appearance:none;outline:none;transition:border-color 0.15s;min-width:80px}
+.cpd-preset:focus{border-color:var(--primary);box-shadow:0 0 0 1px rgba(37,99,235,0.1)}
+.cpd-model-sel{padding:5px 28px 5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;color:var(--text);background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E") no-repeat right 8px center;cursor:pointer;appearance:none;-webkit-appearance:none;outline:none;transition:border-color 0.15s;flex:0 0 auto;width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cpd-model-sel:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgba(37,99,235,0.1)}
+.cpd-model-sel.filled{border-color:var(--success);background-color:#f0fdf4}
+.cpd-model-wrap{position:relative;flex:0 0 auto;width:220px}
+.cpd-model-wrap .cpd-model-sel-native{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:1;width:100%;height:100%}
+.cpd-model-display{padding:5px 28px 5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;color:var(--text);background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E") no-repeat right 8px center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;transition:border-color 0.15s;min-height:24px;line-height:1.4}
+.cpd-model-display:focus-within,.cpd-model-wrap:focus-within .cpd-model-display{border-color:var(--primary);box-shadow:0 0 0 2px rgba(37,99,235,0.1)}
+.cpd-model-display.filled{border-color:var(--success);background-color:#f0fdf4}
+.cpd-model-wrap:focus-within .cpd-model-display.filled{border-color:var(--success);box-shadow:0 0 0 2px rgba(22,163,74,0.15)}
+.cpd-subfields{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:3px}
+.cpd-manual-inp{flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;color:var(--text);background:#fff;outline:none;transition:border-color 0.15s;min-width:120px;max-width:300px}
+.cpd-manual-inp:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgba(37,99,235,0.1)}
+.cpd-manual-inp.filled{border-color:var(--success);background:#f0fdf4}
+.toast{position:fixed;bottom:24px;right:24px;background:#1e293b;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border-radius:12px;padding:24px;width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
+.modal h3{font-size:15px;margin-bottom:10px}
+.modal p{font-size:13px;color:var(--text-secondary);margin-bottom:18px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:#f1f5f9}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+@media(max-width:768px){.header{flex-direction:column;align-items:flex-start}.config-table .item-label{width:30%}.config-table .item-fields{width:45%}.config-table .item-remark{width:25%}}
+</style>
+</head>
+<body>
+
+<div class="sticky-top">
+<div class="header">
+  <div class="header-left">
+    <h1>溶液系统配置工具</h1>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-outline btn-sm" onclick="expandAll()">展开全部</button>
+    <button class="btn btn-outline btn-sm" onclick="collapseAll()">折叠全部</button>
+    <div class="header-sep"></div>
+    <button class="btn btn-outline btn-sm" onclick="copyToAll()">复制到全部物料</button>
+    <button class="btn btn-outline btn-sm" onclick="clearCurrent()">清空当前物料</button>
+    <div class="header-sep"></div>
+    <button class="btn btn-outline btn-sm" onclick="copyConfig()" title="将当前物料配置复制为JSON">复制配置</button>
+    <button class="btn btn-outline btn-sm" onclick="pasteConfig()" title="从剪贴板粘贴JSON配置">粘贴配置</button>
+    <div class="header-sep"></div>
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('importFile').click()">导入Excel</button>
+    <input type="file" id="importFile" accept=".xlsx,.xls" style="display:none" onchange="handleImport(event)">
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('configFile').click()" style="background:#fef3c7;border-color:#f59e0b;color:#92400e" title="导入原始配置表，自动识别模板结构">加载配置表</button>
+    <input type="file" id="configFile" accept=".xlsx,.xls" style="display:none" onchange="handleConfigImport(event)">
+    <button class="btn btn-outline btn-sm" onclick="clearConfigTemplate()" id="resetConfigBtn" style="display:none" title="清除已加载的配置表模板">清除配置表</button>
+    <div class="header-sep"></div>
+    <button class="btn btn-success btn-sm" onclick="exportExcel()">导出Excel</button>
+    <span id="autosaveTime" style="color:var(--text-muted);font-size:10px;flex-shrink:0"></span>
+  </div>
+</div>
+
+<div class="material-tabs" id="materialTabs"></div>
+
+<div class="info-bar">
+  <span>模块: <span class="count-num" id="moduleCount">0</span></span>
+  <span>配置项: <span class="count-num" id="itemCount">0</span></span>
+  <span>已选: <span class="count-num" id="filledCount">0</span></span>
+  <span>未选: <span class="count-num" id="emptyCount">0</span></span>
+  <span id="configSource" style="font-size:10px;color:var(--text-muted);margin-left:auto"></span>
+  <div class="progress-wrap">
+    <span class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar" style="width:0%"></div></span>
+    <span class="progress-text" id="progressText">0%</span>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <span style="font-size:12px">🔍</span>
+  <input type="text" id="filterInput" placeholder="搜索变量名或参数值..." autocomplete="off" oninput="applyFilter()">
+  <span class="filter-count" id="filterCount"></span>
+  <button class="filter-clear" id="filterClear" style="display:none" onclick="clearFilter()">清除</button>
+</div>
+</div>
+
+<div class="main-content" id="mainContent"></div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle"></h3>
+    <p id="modalMsg"></p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-danger" id="modalConfirm">确定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const APP_CONFIG = {"materials": ["物料1"], "modules": []};
+
+const AUTOSAVE_KEY='solutionConfig_v3';
+let activeMaterial=0,selections={},remarks={},simpleManual={};
+const APP_CONFIG_DEFAULT=APP_CONFIG;
+let MATERIALS=APP_CONFIG_DEFAULT.materials;
+let MODULES=APP_CONFIG_DEFAULT.modules;
+
+function makeKey(mi,ii){return mi+'-'+ii}
+
+function init(){
+loadCustomConfig();
+try{const s=localStorage.getItem(AUTOSAVE_KEY);if(s){const st=JSON.parse(s);if(st.selections)selections=st.selections;if(st.remarks)remarks=st.remarks;if(st.activeMaterial!==undefined)activeMaterial=st.activeMaterial;if(st.materials&&Array.isArray(st.materials)&&st.materials.length)MATERIALS=st.materials}}catch(e){}
+initMaterialTabs();renderCurrent();updateStats();
+setInterval(autoSave,10000);window.addEventListener('beforeunload',autoSave);
+}
+
+function getMatSelections(mi){if(!selections[mi])selections[mi]={};return selections[mi]}
+function getMatRemarks(mi){if(!remarks[mi])remarks[mi]={};return remarks[mi]}
+function getRemark(key){const mr=getMatRemarks(activeMaterial);return mr[key]||''}
+
+function initMaterialTabs(){
+const c=document.getElementById('materialTabs');let h='';
+MATERIALS.forEach((mat,i)=>{
+const ms=getMatSelections(i);let f=0;
+MODULES.forEach((mod,mi)=>{mod.items.forEach((it,ii)=>{const k=makeKey(mi,ii);const v=ms[k];if(v&&(typeof v==='string'?v!=='':v.fields&&v.fields.join('')!==''))f++})});
+const dc=f===0?'empty':(f>=countItems()?'done':'partial');
+const onlyOne=MATERIALS.length<=1;
+h+='<div class="material-tab'+(i===activeMaterial?' active':'')+'" style="display:inline-flex;align-items:center">';
+h+='<span class="tab-name" onclick="switchMaterial('+i+')" ondblclick="startRename('+i+')" title="单击切换，双击改名">';
+h+='<span class="tab-dot '+dc+'"></span>';
+h+='<span>'+escHtml(mat)+'</span></span>';
+h+='<span class="tab-del'+(onlyOne?' hide':'')+'" onclick="event.stopPropagation();deleteMaterial('+i+')" title="删除此物料">×</span>';
+h+='</div>'
+});
+h+='<button class="tab-add-btn" onclick="addMaterial()" title="新建物料页">＋</button>';
+c.innerHTML=h
+}
+
+function switchMaterial(i){activeMaterial=i;initMaterialTabs();renderCurrent();updateStats();autoSave()}
+
+function addMaterial(){
+const baseName='物料';let n=MATERIALS.length+1;let name;
+do{name=baseName+n;n++}while(MATERIALS.includes(name));
+MATERIALS.push(name);
+selections[MATERIALS.length-1]={};remarks[MATERIALS.length-1]={};
+activeMaterial=MATERIALS.length-1;
+initMaterialTabs();renderCurrent();updateStats();autoSave();showToast('已新建 "'+name+'"')
+}
+function deleteMaterial(i){
+if(MATERIALS.length<=1){showToast('至少保留一个物料页');return}
+const ms=getMatSelections(i);let fc=0;
+MODULES.forEach((mod,mi)=>{mod.items.forEach((it,ii)=>{if(isFilled(ms[makeKey(mi,ii)]))fc++})});
+if(fc>0){
+showModal('删除物料页','物料 "'+MATERIALS[i]+'" 有 '+fc+' 个已填写项（总 '+countItems()+' 项），确定要删除吗？此操作不可恢复。',function(){
+doDeleteMaterial(i)
+})
+}else{
+doDeleteMaterial(i)
+}
+}
+function doDeleteMaterial(i){
+const name=MATERIALS[i];
+MATERIALS.splice(i,1);
+selections[i]=undefined;delete selections[i];
+remarks[i]=undefined;delete remarks[i];
+// Re-index selections/remarks
+const ns={},nr={};
+for(let j=0;j<MATERIALS.length;j++){
+const old=j<i?j:j+1;
+if(selections[old]!==undefined)ns[j]=selections[old];
+if(remarks[old]!==undefined)nr[j]=remarks[old];
+}
+selections=ns;remarks=nr;
+if(activeMaterial>=MATERIALS.length)activeMaterial=MATERIALS.length-1;
+if(activeMaterial<0)activeMaterial=0;
+initMaterialTabs();renderCurrent();updateStats();autoSave();showToast('已删除 "'+name+'"')
+}
+function startRename(i){
+const c=document.getElementById('materialTabs');if(!c)return;
+const tabs=c.querySelectorAll('.material-tab');const tab=tabs[i];if(!tab)return;
+const nameSpan=tab.querySelector('.tab-name');if(!nameSpan||nameSpan.querySelector('input'))return;
+const oldName=MATERIALS[i];
+const inp=document.createElement('input');inp.type='text';inp.className='tab-rename-inp';inp.value=oldName;inp.maxLength=30;
+nameSpan.style.display='none';
+tab.insertBefore(inp,tab.querySelector('.tab-del'));
+inp.focus();inp.select();
+const finish=function(){
+const newName=inp.value.trim();
+inp.remove();nameSpan.style.display='';
+if(newName&&newName!==oldName&&!MATERIALS.includes(newName)){
+MATERIALS[i]=newName;
+initMaterialTabs();updateStats();autoSave();showToast('已改名: '+oldName+' → '+newName)
+}else if(!newName){showToast('名称不能为空')}
+};
+inp.addEventListener('blur',finish);
+inp.addEventListener('keydown',function(e){if(e.key==='Enter'){inp.blur()}if(e.key==='Escape'){inp.value=oldName;inp.blur()}})
+}
+
+const COLORS=['#2563eb','#dc2626','#16a34a','#ca8a04','#9333ea','#0891b2','#db2777','#ea580c','#4f46e5','#059669','#c026d3','#0d9488'];
+
+function renderCurrent(){
+const ms=getMatSelections(activeMaterial);const c=document.getElementById('mainContent');let h='';
+if(!MODULES||MODULES.length===0){
+h='<div style="text-align:center;padding:80px 20px;color:var(--text-muted)"><div style="font-size:48px;margin-bottom:16px">📋</div><div style="font-size:16px;font-weight:600;margin-bottom:8px">暂无配置表模板</div><div style="font-size:13px">请点击上方 <span style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;border-radius:4px;padding:2px 8px;font-weight:500">加载配置表</span> 按钮导入 Excel 配置表</div></div>';
+c.innerHTML=h;return
+}
+MODULES.forEach((mod,mi)=>{
+let mf=0,mt=mod.items.length;
+mod.items.forEach((it,ii)=>{if(isFilled(ms[makeKey(mi,ii)]))mf++});
+const isOpen=mf<mt;
+const bc=mf===mt?'badge-done':(mf>0?'badge-partial':'badge-empty');
+const bt=mf===mt?'✓ 已完成':(mf+'/'+mt);
+const cl=COLORS[mi%COLORS.length];
+h+='<div class="accordion" data-module="'+mi+'">';
+h+='<div class="accordion-header'+(isOpen?' open':'')+'" onclick="toggleModule('+mi+')" style="border-left:3px solid '+cl+'">';
+h+='<span class="accordion-arrow'+(isOpen?' open':'')+'">▶</span>';
+h+='<span class="accordion-title">'+escHtml(mod.module)+'</span>';
+h+='<span class="accordion-badge '+bc+'">'+bt+'</span></div>';
+h+='<div class="accordion-body'+(isOpen?' open':'')+'" id="body-'+mi+'"><table class="config-table"><tbody>';
+mod.items.forEach((it,ii)=>{
+const key=makeKey(mi,ii);const v=ms[key];
+const itl=escHtml(it.item).toLowerCase();const all=getAllItemText(it).toLowerCase();
+h+='<tr data-key="'+key+'" data-item="'+itl+'" data-all="'+all+'">';
+h+='<td class="item-label">'+escHtml(it.item)+(it.compound?'<span class="compound-badge">◆分支</span>':'')+'</td>';
+h+='<td class="item-fields">';
+if(it.compound)h+=renderCpd(it,mi,ii,v);
+else h+=renderSimple(it,mi,ii,v);
+h+='</td><td class="item-remark"><input type="text" value="'+escAttr(getRemark(key))+'" placeholder="备注..." onchange="onRemarkChange(\''+key+'\',this.value)"></td>';
+h+='</tr>'
+});
+h+='</tbody></table></div></div>'
+});
+c.innerHTML=h
+}
+
+function isFilled(v){if(!v)return false;if(typeof v==='string')return v!=='';if(typeof v==='object'&&v.fields)return v.fields.some(f=>f!=='');return false}
+function getAllItemText(it){let t=it.item;it.options.forEach(o=>{t+=' '+o});return t}
+
+function renderSimple(it,mi,ii,v){
+const key=makeKey(mi,ii);const val=typeof v==='string'?v:'';const isM=simpleManual[key]||(val&&!it.options.includes(val));
+let h='<div class="simple-select-cell">';
+h+='<select id="sel-'+key+'" class="'+(val?'filled':'')+'" onchange="onSimpleSel(\''+key+'\',this.value)"'+(isM?' style="display:none"':'')+'>';
+h+='<option value="">-- 请选择 --</option>';
+it.options.forEach(o=>{h+='<option value="'+escAttr(o)+'"'+(val===o?' selected':'')+'>'+escHtml(o)+'</option>'});
+h+='</select>';
+h+='<input type="text" id="inp-'+key+'" class="'+(val?'filled':'')+'" value="'+escAttr(val)+'" placeholder="手动输入..." onchange="onSimpleInp(\''+key+'\',this.value)"'+(isM?'':' style="display:none"')+'>';
+h+='<button class="input-toggle" onclick="toggleSimple(\''+key+'\')">'+(isM?'▼':'<span style="font-size:12px">✎</span>')+'</button>';
+h+='</div>';return h
+}
+
+function renderCpd(it,mi,ii,v){
+const key=makeKey(mi,ii);const cpd=it.compound;
+const flds=(v&&v.fields)?v.fields:new Array(cpd.n_fields).fill('');
+const isM=v&&v.manual;
+let h='<div class="compound-row" id="cpd-'+key+'">';
+
+// Normal panel: model dropdown + sub-fields
+h+='<div id="cpd-normal-'+key+'" style="display:'+(isM?'none':'flex')+';flex-direction:column;gap:3px;flex:1;min-width:0">';
+// Model select wrapper: native select hidden, visible display shows model name only
+const curKey=flds.join('|');const hasModel=!!cpd.model_lookup[curKey];
+const dispModel=hasModel?cpd.model_lookup[curKey]:'';
+h+='<div class="cpd-model-wrap">';
+h+='<select id="cpd-model-'+key+'" onchange="onCpdModel(\''+key+'\',this.value)" class="cpd-model-sel-native" title="选择型号"><option value="">-- 请选择型号 --</option>';
+cpd.combos.forEach(co=>{
+const sel=curKey===co.fields.join('|')?' selected':'';
+h+='<option value="'+escAttr(co.fields.join('|'))+'"'+sel+'>'+escHtml(co.model+' : '+co.fields.join('+'))+'</option>'});
+h+='</select>';
+h+='<div class="cpd-model-display'+(hasModel?' filled':'')+'" id="cpd-model-disp-'+key+'" onclick="var s=document.getElementById(\'cpd-model-'+key+'\');if(s.showPicker)s.showPicker();else{s.focus();s.click()}" title="'+(hasModel?escAttr(dispModel+' : '+flds.join('+')):'选择型号')+'">'+(hasModel?escHtml(dispModel):'-- 请选择型号 --')+'</div>';
+h+='</div>';
+// Sub-fields
+h+='<div class="cpd-subfields">';
+cpd.field_names.forEach((fn,fi)=>{
+h+='<div class="compound-field"><span class="compound-field-label">'+escHtml(fn)+'</span>';
+const fv=flds[fi]||'';const vv=getValidVals(cpd,fi,flds);
+h+='<select id="cpd-sel-'+key+'-'+fi+'" onchange="onCpdSel(\''+key+'\','+fi+',this.value)">';
+h+='<option value="">--</option>';
+vv.forEach(o=>{h+='<option value="'+escAttr(o)+'"'+(fv===o?' selected':'')+'>'+escHtml(o)+'</option>'});
+h+='</select></div>';
+if(fi<cpd.n_fields-1)h+='<span class="compound-sep">+</span>'
+});
+h+='</div></div>';
+
+// Manual panel: single text input
+const manualVal=flds.join('+');
+h+='<input type="text" id="cpd-manual-'+key+'" value="'+escAttr(manualVal)+'" placeholder="手动输入，用+分隔" onchange="onCpdManual(\''+key+'\',this.value)" class="cpd-manual-inp'+(manualVal?' filled':'')+'" style="display:'+(isM?'':'none')+'">';
+
+h+='<button class="cpd-input-toggle" onclick="toggleCpd(\''+key+'\')">'+(isM?'▼':'<span style="font-size:11px">✎</span>')+'</button>';
+h+='</div>';return h
+}
+
+function getValidVals(cpd,fi,cur){
+const all=cpd.field_values[fi];const vs=new Set();
+for(let ci=0;ci<cpd.combos.length;ci++){
+const co=cpd.combos[ci];let ok=true;
+for(let fj=0;fj<cpd.n_fields;fj++){if(fj===fi)continue;if(cur[fj]&&co.fields[fj]!==cur[fj]){ok=false;break}}
+if(ok)vs.add(co.fields[fi])
+}
+return all.filter(v=>vs.has(v))
+}
+
+function buildCpdResult(cpd,fields){if(fields.every(f=>f===''))return null;return cpd.model_lookup[fields.join('|')]||null}
+
+function onSimpleSel(key,val){simpleManual[key]=false;const ms=getMatSelections(activeMaterial);ms[key]=val;updateStats();autoSave()}
+function onSimpleInp(key,val){simpleManual[key]=true;const ms=getMatSelections(activeMaterial);ms[key]=val;updateStats();autoSave()}
+function onRemarkChange(key,val){const mr=getMatRemarks(activeMaterial);mr[key]=val;autoSave()}
+function toggleSimple(key){simpleManual[key]=!simpleManual[key];const s=document.getElementById('sel-'+key);const i=document.getElementById('inp-'+key);if(!s||!i)return;if(s.style.display==='none'){s.style.display='';i.style.display='none'}else{s.style.display='none';i.style.display=''}}
+
+function onCpdSel(key,fi,val){
+const ms=getMatSelections(activeMaterial);let v=ms[key];
+if(!v||typeof v==='string'){const[mi,ii]=key.split('-').map(Number);const it=MODULES[mi].items[ii];v={fields:new Array(it.compound.n_fields).fill(''),manual:false}}
+if(typeof v==='object'&&v.fields)v.fields[fi]=val;
+ms[key]=v;refreshCpd(key,v);updateStats();autoSave()
+}
+
+function onCpdPreset(key,val){
+if(!val)return;
+const ms=getMatSelections(activeMaterial);let v=ms[key];
+const[mi,ii]=key.split('-').map(Number);const it=MODULES[mi].items[ii];
+if(!v||typeof v==='string')v={fields:new Array(it.compound.n_fields).fill(''),manual:false};
+v.fields=val.split('|');v.manual=false;
+ms[key]=v;refreshCpd(key,v);updateStats();autoSave()
+}
+
+function onCpdModel(key,val){
+const ms=getMatSelections(activeMaterial);let v=ms[key];
+const[mi,ii]=key.split('-').map(Number);const it=MODULES[mi].items[ii];
+if(!val){
+ms[key]='';refreshCpd(key,{fields:new Array(it.compound.n_fields).fill(''),manual:false});updateStats();autoSave();return
+}
+if(!v||typeof v==='string')v={fields:new Array(it.compound.n_fields).fill(''),manual:false};
+v.fields=val.split('|');v.manual=false;
+ms[key]=v;refreshCpd(key,v);updateStats();autoSave()
+}
+
+function onCpdManual(key,val){
+const ms=getMatSelections(activeMaterial);let v=ms[key];
+const[mi,ii]=key.split('-').map(Number);const it=MODULES[mi].items[ii];
+if(!v||typeof v==='string')v={fields:new Array(it.compound.n_fields).fill(''),manual:true};
+v.fields=val.split('+');v.manual=true;
+ms[key]=v;refreshCpd(key,v);updateStats();autoSave()
+}
+
+function toggleCpd(key){const ms=getMatSelections(activeMaterial);let v=ms[key];if(!v||typeof v==='string'){const[mi,ii]=key.split('-').map(Number);const it=MODULES[mi].items[ii];v={fields:new Array(it.compound.n_fields).fill(''),manual:false}}v.manual=!v.manual;ms[key]=v;refreshCpd(key,v);autoSave()}
+
+function refreshCpd(key,v){
+const[mi,ii]=key.split('-').map(Number);const it=MODULES[mi].items[ii];if(!it||!it.compound)return;
+const cpd=it.compound;const flds=(v&&v.fields)?v.fields:new Array(cpd.n_fields).fill('');const isM=v&&v.manual;
+
+// Update manual input
+const manInp=document.getElementById('cpd-manual-'+key);
+if(manInp){manInp.value=flds.join('+');manInp.style.display=isM?'':'none'}
+
+// Update normal panel visibility
+const normal=document.getElementById('cpd-normal-'+key);
+if(normal)normal.style.display=isM?'none':'flex';
+
+// Update model dropdown selection
+const modelSel=document.getElementById('cpd-model-'+key);
+if(modelSel){const cur=flds.join('|');let found=false;for(let i=0;i<modelSel.options.length;i++){if(modelSel.options[i].value===cur){modelSel.selectedIndex=i;found=true;break}}if(!found)modelSel.selectedIndex=0;const hasModel=cur!==''&&!!cpd.model_lookup[cur];modelSel.className='cpd-model-sel-native'}
+// Update display div
+const disp=document.getElementById('cpd-model-disp-'+key);
+if(disp){const cur=flds.join('|');const hasModel=cur!==''&&!!cpd.model_lookup[cur];if(hasModel){disp.textContent=cpd.model_lookup[cur];disp.className='cpd-model-display filled';disp.title=cpd.model_lookup[cur]+' : '+flds.join('+')}else{disp.textContent='-- 请选择型号 --';disp.className='cpd-model-display';disp.title='选择型号'}}
+
+// Update field dropdowns
+for(let fi=0;fi<cpd.n_fields;fi++){
+const sel=document.getElementById('cpd-sel-'+key+'-'+fi);
+if(sel){const fv=flds[fi]||'';const vv=getValidVals(cpd,fi,flds);sel.innerHTML='<option value="">--</option>';vv.forEach(o=>{sel.innerHTML+='<option value="'+escAttr(o)+'"'+(fv===o?' selected':'')+'>'+escHtml(o)+'</option>'});if(fv&&!vv.includes(fv)&&!isM){sel.innerHTML+='<option value="'+escAttr(fv)+'" selected>'+escHtml(fv)+'</option>'}}
+}
+
+// Update toggle button
+const row=document.getElementById('cpd-'+key);
+const tg=row?row.querySelector('.cpd-input-toggle'):null;
+if(tg){tg.innerHTML=isM?'▼':'<span style="font-size:11px">✎</span>'}
+}
+
+function toggleModule(mi){const b=document.getElementById('body-'+mi);if(!b)return;const h=b.previousElementSibling;const a=h.querySelector('.accordion-arrow');const o=b.classList.contains('open');if(o){b.classList.remove('open');h.classList.remove('open');a.classList.remove('open')}else{b.classList.add('open');h.classList.add('open');a.classList.add('open')}}
+function expandAll(){document.querySelectorAll('.accordion-body').forEach(b=>b.classList.add('open'));document.querySelectorAll('.accordion-header').forEach(h=>h.classList.add('open'));document.querySelectorAll('.accordion-arrow').forEach(a=>a.classList.add('open'))}
+function collapseAll(){document.querySelectorAll('.accordion-body').forEach(b=>b.classList.remove('open'));document.querySelectorAll('.accordion-header').forEach(h=>h.classList.remove('open'));document.querySelectorAll('.accordion-arrow').forEach(a=>a.classList.remove('open'))}
+
+function countItems(){return MODULES.reduce((s,m)=>s+m.items.length,0)}
+function updateStats(){
+const ms=getMatSelections(activeMaterial);const ti=countItems();let fc=0;
+MODULES.forEach((mod,mi)=>{mod.items.forEach((it,ii)=>{if(isFilled(ms[makeKey(mi,ii)]))fc++})});
+document.getElementById('filledCount').textContent=fc;document.getElementById('emptyCount').textContent=ti-fc;document.getElementById('itemCount').textContent=ti;
+const pct=ti>0?Math.round((fc/ti)*100):0;document.getElementById('progressBar').style.width=pct+'%';document.getElementById('progressText').textContent=pct+'%';
+MODULES.forEach((mod,mi)=>{let mf=0;mod.items.forEach((it,ii)=>{if(isFilled(ms[makeKey(mi,ii)]))mf++});const b=document.querySelector('.accordion[data-module="'+mi+'"] .accordion-badge');if(!b)return;if(mf===mod.items.length){b.className='accordion-badge badge-done';b.textContent='✓ 已完成'}else if(mf>0){b.className='accordion-badge badge-partial';b.textContent=mf+'/'+mod.items.length}else{b.className='accordion-badge badge-empty';b.textContent='0/'+mod.items.length}});
+initMaterialTabs()
+}
+
+function clearCurrent(){const ms=getMatSelections(activeMaterial);const c=Object.values(ms).filter(v=>isFilled(v)).length;if(c===0){showToast('没有已选项目');return}showModal('清空当前物料','确定要清空 "'+MATERIALS[activeMaterial]+'" 的全部 '+c+' 个已选项目吗？',()=>{selections[activeMaterial]={};remarks[activeMaterial]={};simpleManual={};renderCurrent();updateStats();autoSave();showToast('已清空')})}
+function copyToAll(){const src=getMatSelections(activeMaterial);const c=Object.values(src).filter(v=>isFilled(v)).length;if(c===0){showToast('当前物料没有已选项目');return}showModal('复制到全部物料','确定将 "'+MATERIALS[activeMaterial]+'" 的 '+c+' 项配置复制到所有 '+MATERIALS.length+' 个物料？',()=>{const sc=JSON.parse(JSON.stringify(src));const rc=remarks[activeMaterial]?JSON.parse(JSON.stringify(remarks[activeMaterial])):null;for(let i=0;i<MATERIALS.length;i++){if(i===activeMaterial)continue;selections[i]=JSON.parse(JSON.stringify(sc));if(rc)remarks[i]=JSON.parse(JSON.stringify(rc))}showToast('已复制到全部物料');updateStats();autoSave()})}
+
+function copyConfig(){
+const ms=getMatSelections(activeMaterial);const mr=getMatRemarks(activeMaterial);
+const data={selections:ms,remarks:mr,material:MATERIALS[activeMaterial]};
+const json=JSON.stringify(data);
+if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(json).then(()=>showToast('配置已复制到剪贴板')).catch(()=>fallbackCopy(json))}else{fallbackCopy(json)}
+}
+function fallbackCopy(text){
+const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+try{document.execCommand('copy');showToast('配置已复制到剪贴板')}catch(e){showToast('复制失败')}
+document.body.removeChild(ta)
+}
+function pasteConfig(){
+if(!navigator.clipboard||!navigator.clipboard.readText){showToast('当前环境不支持读取剪贴板');return}
+navigator.clipboard.readText().then(text=>{
+try{
+const data=JSON.parse(text);
+if(!data||typeof data!=='object'||!data.selections){showToast('剪贴板内容不是有效配置');return}
+showModal('粘贴配置','确定将剪贴板中的配置粘贴到当前物料 "'+MATERIALS[activeMaterial]+'" 吗？（当前配置将被覆盖）',()=>{
+selections[activeMaterial]=JSON.parse(JSON.stringify(data.selections));
+if(data.remarks)remarks[activeMaterial]=JSON.parse(JSON.stringify(data.remarks));
+renderCurrent();updateStats();autoSave();showToast('配置已粘贴')
+})
+}catch(e){showToast('剪贴板内容不是有效JSON')}
+}).catch(()=>showToast('无法读取剪贴板'))
+}
+
+function applyFilter(){
+const q=document.getElementById('filterInput').value.toLowerCase().trim();const fc=document.getElementById('filterCount');const fcb=document.getElementById('filterClear');
+if(!q){document.querySelectorAll('.config-table tr').forEach(tr=>tr.classList.remove('filtered-out'));document.querySelectorAll('.accordion').forEach(acc=>acc.style.display='');fc.textContent='';fcb.style.display='none';return}
+fcb.style.display='';let v=0,t=0;
+document.querySelectorAll('.config-table tr[data-key]').forEach(tr=>{t++;const at=(tr.dataset.item||'')+' '+(tr.dataset.all||'');if(at.includes(q)){tr.classList.remove('filtered-out');v++}else{tr.classList.add('filtered-out')}});
+document.querySelectorAll('.accordion').forEach(acc=>{const vis=acc.querySelectorAll('.config-table tr:not(.filtered-out)');acc.style.display=vis.length>0?'':'none';if(vis.length>0){const b=acc.querySelector('.accordion-body');if(b&&!b.classList.contains('open')){b.classList.add('open');acc.querySelector('.accordion-header').classList.add('open');acc.querySelector('.accordion-arrow').classList.add('open')}}});
+fc.textContent='匹配 '+v+' / '+t
+}
+function clearFilter(){document.getElementById('filterInput').value='';applyFilter()}
+
+function exportExcel(){
+if(typeof XLSX==='undefined'){showToast('XLSX库加载失败，请刷新页面');return}
+if(!MODULES||MODULES.length===0){showToast('无配置表模板，请先加载配置表');return}
+const wb=XLSX.utils.book_new();
+MATERIALS.forEach((mat,matIdx)=>{
+const ms=getMatSelections(matIdx);const mr=getMatRemarks(matIdx);const rows=[];
+const merges=[];const pi=[['模块','变量','参数','备注']];
+const hdrLen=pi.length;
+MODULES.forEach((mod,mi)=>{const sr=rows.length;mod.items.forEach((it,ii)=>{const key=makeKey(mi,ii);const v=ms[key];let vs='';if(v){if(typeof v==='string'){vs=v}else if(v.fields){vs=v.fields.join('+');if(it.compound){const m=buildCpdResult(it.compound,v.fields);if(m)vs=m+':'+vs}}}const rm=mr[key]||'';rows.push([ii===0?mod.module:'',it.item,vs,rm])});if(mod.items.length>1)merges.push({s:{r:hdrLen+sr,c:0},e:{r:hdrLen+sr+mod.items.length-1,c:0}})});
+const data=[...pi,...rows];const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=[{wch:26},{wch:38},{wch:70},{wch:40}];
+if(merges.length)ws['!merges']=merges;
+const sn=mat.replace(/[\\\/\*\?\:\[\]]/g,'').substring(0,31);XLSX.utils.book_append_sheet(wb,ws,sn)
+});
+const fn='溶液系统配置_'+new Date().toISOString().slice(0,10)+'.xlsx';XLSX.writeFile(wb,fn);showToast('导出成功: '+fn)
+}
+
+function handleImport(e){
+const file=e.target.files[0];if(!file)return;if(typeof XLSX==='undefined'){showToast('XLSX库加载失败');e.target.value='';return}
+const r=new FileReader();r.onload=function(ev){
+try{const wb=XLSX.read(ev.target.result,{type:'array'});let ti=0;const sns=wb.SheetNames;
+const lm={};MODULES.forEach((mod,mi)=>{mod.items.forEach((it,ii)=>{lm[mod.module+'|'+it.item]={mi,ii}})});
+sns.forEach(sn=>{let matIdx=-1;for(let i=0;i<MATERIALS.length;i++){if(sn.startsWith(MATERIALS[i])||sn===MATERIALS[i]){matIdx=i;break}}if(matIdx<0)matIdx=0;
+const ws=wb.Sheets[sn];const json=XLSX.utils.sheet_to_json(ws,{header:1});const ms=getMatSelections(matIdx);const mr=getMatRemarks(matIdx);
+let sr=-1;for(let i=0;i<json.length;i++){if(json[i]&&json[i][0]==='模块'&&json[i][1]==='变量'){sr=i+1;break}}if(sr<0)return;
+let imp=0,prevMod='';for(let i=sr;i<json.length;i++){const row=json[i];if(!row||row.length<2)continue;let mn=String(row[0]||'').trim();if(!mn)mn=prevMod;else prevMod=mn;const in_=String(row[1]||'').trim();const vs=String(row[2]||'').trim();const rm=String(row[3]||'').trim();if(!mn||!in_)continue;const lk=mn+'|'+in_;const f=lm[lk];if(!f)continue;const key=makeKey(f.mi,f.ii);const it=MODULES[f.mi].items[f.ii];
+if(vs&&it.compound){let fields;if(vs.includes(':')){const parts=vs.split(':');fields=parts.slice(1).join(':').split('+')}else{fields=vs.split('+')}if(fields.length===it.compound.n_fields){ms[key]={fields:fields,manual:false}}else{ms[key]=vs}}else if(vs){ms[key]=vs}
+if(rm)mr[key]=rm;
+imp++}ti+=imp});
+renderCurrent();updateStats();autoSave();showToast('成功导入 '+ti+' 项配置，涵盖 '+sns.length+' 个物料')}catch(err){console.error(err);showToast('导入失败: '+err.message)}
+};r.readAsArrayBuffer(file);e.target.value=''
+}
+
+function autoSave(){try{const d={selections,remarks,activeMaterial,materials:MATERIALS};localStorage.setItem(AUTOSAVE_KEY,JSON.stringify(d));document.getElementById('autosaveTime').textContent='已暂存 '+new Date().toLocaleTimeString('zh-CN')}catch(e){}}
+
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500)}
+function showModal(tt,m,cb){document.getElementById('modalTitle').textContent=tt;document.getElementById('modalMsg').textContent=m;document.getElementById('modalOverlay').classList.add('show');document.getElementById('modalConfirm').onclick=()=>{closeModal();cb()}}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('show')}
+function escHtml(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function escAttr(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+
+// ===== 配置表自动识别引擎 =====
+function loadCustomConfig(){
+try{const cc=localStorage.getItem('solutionConfig_custom');if(cc){const p=JSON.parse(cc);if(p.modules&&Array.isArray(p.modules)&&p.modules.length){let valid=true;let ti=0;for(const m of p.modules){if(!m.items||!Array.isArray(m.items)){valid=false;break}ti+=m.items.length}if(valid&&ti>0){MODULES=p.modules;document.getElementById('moduleCount').textContent=MODULES.length;document.getElementById('resetConfigBtn').style.display='';document.getElementById('configSource').textContent='\u914d\u7f6e\u6a21\u677f\uff1a\u81ea\u5b9a\u4e49'}else{localStorage.removeItem('solutionConfig_custom');document.getElementById('resetConfigBtn').style.display='none';document.getElementById('configSource').textContent=''}}else{}}else{document.getElementById('resetConfigBtn').style.display='none';document.getElementById('configSource').textContent=''}}catch(e){console.warn('Custom config load failed:',e);localStorage.removeItem('solutionConfig_custom')}
+}
+function saveCustomConfig(modules){
+localStorage.setItem('solutionConfig_custom',JSON.stringify({modules}));
+MODULES=modules;
+document.getElementById('moduleCount').textContent=MODULES.length;
+document.getElementById('resetConfigBtn').style.display='';
+document.getElementById('configSource').textContent='\u914d\u7f6e\u8868\uff1a\u5df2\u52a0\u8f7d';
+selections={};remarks={};simpleManual={};activeMaterial=0;
+renderCurrent();updateStats();autoSave()
+}
+function clearConfigTemplate(){
+showModal('\u6e05\u9664\u914d\u7f6e\u8868','\u786e\u5b9a\u8981\u6e05\u9664\u5f53\u524d\u52a0\u8f7d\u7684\u914d\u7f6e\u8868\u6a21\u677f\u5417\uff1f\u6a21\u5757\u3001\u914d\u7f6e\u9879\u3001\u5df2\u9009\u6570\u636e\u5c06\u5168\u90e8\u6e05\u7a7a\uff0c\u7269\u6599\u5217\u8868\u4fdd\u7559\u3002',function(){
+localStorage.removeItem('solutionConfig_custom');
+MATERIALS=['\u7269\u65991'];MODULES=[];
+document.getElementById('moduleCount').textContent='0';
+document.getElementById('resetConfigBtn').style.display='none';
+document.getElementById('configSource').textContent='';
+selections={};remarks={};simpleManual={};activeMaterial=0;
+renderCurrent();updateStats();autoSave();showToast('\u5df2\u6e05\u9664\u914d\u7f6e\u8868\u6a21\u677f')
+})}
+function handleConfigImport(e){
+const file=e.target.files[0];if(!file)return;
+if(typeof XLSX==='undefined'){showToast('XLSX库加载失败，请刷新页面');e.target.value='';return}
+const r=new FileReader();
+r.onload=function(ev){
+try{const wb=XLSX.read(ev.target.result,{type:'array'});const sn=wb.SheetNames[0];const ws=wb.Sheets[sn];const json=XLSX.utils.sheet_to_json(ws,{header:1});const result=parseConfigExcel(json);
+if(!result){showToast('解析失败：未识别到有效配置结构');e.target.value='';return}
+showModal('加载配置表','识别到 '+result.modules.length+' 个模块、'+result.totalItems+' 个配置项、'+result.compoundCount+' 个复合字段。\n\n确定替换当前配置模板吗？（物料列表不变，当前已选数据将清空）',function(){saveCustomConfig(result.modules);showToast('配置模板已更新：'+result.modules.length+' 模块，'+result.totalItems+' 项')})
+}catch(err){console.error(err);showToast('解析失败: '+err.message)}};r.readAsArrayBuffer(file);e.target.value=''
+}
+function parseConfigExcel(json){
+let module='',variable='',options=[];
+const rawItems=[];
+for(let i=1;i<json.length;i++){
+const row=json[i];if(!row)continue;
+const c0=String(row[0]||'').trim();const c1=String(row[1]||'').trim();const c2=String(row[2]||'').trim();
+if(c0){if(module&&variable&&options.length){rawItems.push({module,variable,options});options=[]}module=c0;variable=''}
+if(c1){if(variable&&options.length){rawItems.push({module,variable,options});options=[]}variable=c1}
+if(c2){options.push(c2)}
+}
+if(variable&&options.length){rawItems.push({module,variable,options})}
+const moduleMap={};
+for(const ri of rawItems){if(!moduleMap[ri.module])moduleMap[ri.module]=[];moduleMap[ri.module].push(ri)}
+let totalItems=0,compoundCount=0;
+const modules=[];
+for(const [modName,modItems] of Object.entries(moduleMap)){
+const modObj={module:modName,items:[]};
+for(const ri of modItems){
+const itOpts=ri.options;
+const it={item:ri.variable,options:itOpts};
+const cpd=detectCompound(itOpts);
+if(cpd){it.compound=cpd;compoundCount++}
+modObj.items.push(it);totalItems++;
+}
+modules.push(modObj)
+}
+return {modules,totalItems,compoundCount}
+}
+function detectCompound(options){
+if(!options||options.length<3)return null;
+let colonCount=0;const parsed=[];
+for(const o of options){
+if(!o.includes(':'))continue;
+colonCount++;
+const ci=o.indexOf(':');const model=o.substring(0,ci);const fs=o.substring(ci+1);
+const fields=fs.split('+').map(f=>f.trim()).filter(f=>f);
+if(fields.length>=2)parsed.push({model,fields})
+}
+if(colonCount<Math.max(2,options.length*0.5)||parsed.length<2)return null;
+const cm={};for(const p of parsed){cm[p.fields.length]=(cm[p.fields.length]||0)+1}
+let nF=0,mc=0;for(const[k,v]of Object.entries(cm)){if(v>mc){mc=v;nF=parseInt(k)}}
+if(nF<2)return null;
+const vp=parsed.filter(p=>p.fields.length===nF);if(vp.length<2)return null;
+const fv=[];for(let fi=0;fi<nF;fi++){const vs=new Set();for(const p of vp)vs.add(p.fields[fi]);fv.push(Array.from(vs))}
+const fn=extractFieldNames(fv);
+const combos=[];const ml={};
+for(const p of vp){combos.push({model:p.model,fields:p.fields});ml[p.fields.join('|')]=p.model}
+return{type:'compound',n_fields:nF,field_names:fn,field_values:fv,combos:combos,model_lookup:ml}
+}
+function extractFieldNames(fv){
+const names=[];
+for(let fi=0;fi<fv.length;fi++){
+const vals=fv[fi];let name='';
+const cs=findCommonSuffix(vals);
+if(cs&&cs.length>=2&&!/^\d/.test(cs))name=cs;
+else{const cp=findCommonPrefix(vals);if(cp&&cp.length>=2&&!/^\d/.test(cp))name=cp}
+name=name.replace(/[\d.]+$/,'').replace(/["\u201c\u201d]/g,'').trim();
+if(!name||name.length<2){const ac=vals.every(v=>/^[\u4e00-\u9fff]+$/.test(v));name=ac?'品牌':('字段'+(fi+1))}
+names.push(name)
+}
+return names
+}
+function findCommonSuffix(arr){if(!arr||arr.length<2)return arr&&arr.length?arr[0]:'';let s=arr[0];for(let i=1;i<arr.length;i++){const t=arr[i];let j=0;while(j<s.length&&j<t.length&&s[s.length-1-j]===t[t.length-1-j])j++;s=s.substring(s.length-j);if(!s)return''}return s}
+function findCommonPrefix(arr){if(!arr||arr.length<2)return arr&&arr.length?arr[0]:'';let p=arr[0];for(let i=1;i<arr.length;i++){const t=arr[i];let j=0;while(j<p.length&&j<t.length&&p[j]===t[j])j++;p=p.substring(0,j);if(!p)return''}return p}
+
+var _id=false;function safeInit(){if(_id)return;_id=true;init()}
+function loadXlsx(ok,fail){if(typeof XLSX!=='undefined'){ok();return}const cdns=['https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js','https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js'];let t=0;function tn(){if(t>=cdns.length){fail();return}const s=document.createElement('script');s.src=cdns[t++];s.onload=ok;s.onerror=tn;document.head.appendChild(s)}tn()}
+document.addEventListener('DOMContentLoaded',function(){loadXlsx(function(){safeInit()},function(){console.warn('XLSX unavailable');safeInit()});setTimeout(function(){safeInit()},5000)})
+</script>
+</body>
+</html>
