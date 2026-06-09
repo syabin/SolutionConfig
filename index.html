@@ -39,6 +39,8 @@ body{font-family:-apple-system,"Microsoft YaHei","Segoe UI",sans-serif;backgroun
 .material-tab:hover .tab-del{display:inline}
 .material-tab .tab-del:hover{color:var(--danger);background:#fee2e2}
 .material-tab .tab-del.hide{display:none!important}
+.material-tab.dragging{opacity:0.3}
+.material-tab.drag-over{background:#eff6ff;box-shadow:inset 0 0 0 2px var(--primary);border-radius:6px}
 .tab-add-btn{padding:10px 10px;border:none;background:none;font-size:16px;font-weight:700;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap;font-family:inherit;line-height:1}
 .tab-add-btn:hover{color:var(--primary);background:#eff6ff}
 .tab-rename-inp{padding:2px 6px;border:1px solid var(--primary);border-radius:4px;font-size:12px;font-family:inherit;color:var(--text);background:#fff;outline:none;width:100px}
@@ -182,7 +184,7 @@ body{font-family:-apple-system,"Microsoft YaHei","Segoe UI",sans-serif;backgroun
 
 <div class="filter-bar">
   <span style="font-size:12px">🔍</span>
-  <input type="text" id="filterInput" placeholder="搜索变量名或参数值..." autocomplete="off" oninput="applyFilter()">
+  <input type="text" id="filterInput" placeholder="搜索变量名或参数值..." autocomplete="off" oninput="applyFilter()" onkeydown="if(event.key==='Enter')applyFilter()">
   <span class="filter-count" id="filterCount"></span>
   <button class="filter-clear" id="filterClear" style="display:none" onclick="clearFilter()">清除</button>
 </div>
@@ -232,7 +234,7 @@ const ms=getMatSelections(i);let f=0;
 MODULES.forEach((mod,mi)=>{mod.items.forEach((it,ii)=>{const k=makeKey(mi,ii);const v=ms[k];if(v&&(typeof v==='string'?v!=='':v.fields&&v.fields.join('')!==''))f++})});
 const dc=f===0?'empty':(f>=countItems()?'done':'partial');
 const onlyOne=MATERIALS.length<=1;
-h+='<div class="material-tab'+(i===activeMaterial?' active':'')+'" style="display:inline-flex;align-items:center">';
+h+='<div class="material-tab'+(i===activeMaterial?' active':'')+'" draggable="true" style="display:inline-flex;align-items:center" ondragstart="onTabDragStart(event,'+i+')" ondragover="onTabDragOver(event,'+i+')" ondragleave="onTabDragLeave(event)" ondrop="onTabDrop(event,'+i+')" ondragend="onTabDragEnd(event)">';
 h+='<span class="tab-name" onclick="switchMaterial('+i+')" ondblclick="startRename('+i+')" title="单击切换，双击改名">';
 h+='<span class="tab-dot '+dc+'"></span>';
 h+='<span>'+escHtml(mat)+'</span></span>';
@@ -253,6 +255,17 @@ selections[MATERIALS.length-1]={};remarks[MATERIALS.length-1]={};
 activeMaterial=MATERIALS.length-1;
 initMaterialTabs();renderCurrent();updateStats();autoSave();showToast('已新建 "'+name+'"')
 }
+let dragSrcIdx=-1;
+function onTabDragStart(e,i){dragSrcIdx=i;e.dataTransfer.effectAllowed='move';e.currentTarget.classList.add('dragging')}
+function onTabDragOver(e,i){e.preventDefault();e.dataTransfer.dropEffect='move';if(i!==dragSrcIdx)e.currentTarget.classList.add('drag-over')}
+function onTabDragLeave(e){e.currentTarget.classList.remove('drag-over')}
+function onTabDrop(e,i){e.preventDefault();e.currentTarget.classList.remove('drag-over');if(dragSrcIdx<0||dragSrcIdx===i)return;const s=dragSrcIdx;
+[MATERIALS[s],MATERIALS[i]]=[MATERIALS[i],MATERIALS[s]];
+[selections[s],selections[i]]=[selections[i],selections[s]];
+[remarks[s],remarks[i]]=[remarks[i],remarks[s]];
+if(activeMaterial===s)activeMaterial=i;else if(activeMaterial===i)activeMaterial=s;
+dragSrcIdx=-1;initMaterialTabs();renderCurrent();updateStats();autoSave()}
+function onTabDragEnd(e){e.currentTarget.classList.remove('dragging');document.querySelectorAll('.material-tab.drag-over').forEach(t=>t.classList.remove('drag-over'))}
 function deleteMaterial(i){
 if(MATERIALS.length<=1){showToast('至少保留一个物料页');return}
 const ms=getMatSelections(i);let fc=0;
@@ -337,7 +350,7 @@ h+='</tr>'
 });
 h+='</tbody></table></div></div>'
 });
-c.innerHTML=h
+c.innerHTML=h;applyFilter()
 }
 
 function isFilled(v){if(!v)return false;if(Array.isArray(v))return v.length>0;if(typeof v==='string')return v!=='';if(typeof v==='object'&&v.fields)return v.fields.some(f=>f!=='');return false}
@@ -363,7 +376,8 @@ return h
 }
 const val=typeof v==='string'?v:'';const isM=simpleManual[key]||(val&&!it.options.includes(val));
 let h='<div class="simple-select-cell">';
-h+='<select id="sel-'+key+'" class="'+(val?'filled':'')+'" onchange="onSimpleSel(\''+key+'\',this.value)"'+(isM?' style="display:none"':'')+'>';
+const hasSlash=it.options.includes('/');
+h+='<select id="sel-'+key+'" class="'+(val?'filled':'')+'" onchange="onSimpleSel(\''+key+'\',this.value)" onkeydown="onSelectKeydown(event,\''+key+'\','+hasSlash+')"'+(isM?' style="display:none"':'')+'>';
 h+='<option value="">-- 请选择 --</option>';
 it.options.forEach(o=>{h+='<option value="'+escAttr(o)+'"'+(val===o?' selected':'')+'>'+escHtml(o)+'</option>'});
 h+='</select>';
@@ -465,6 +479,10 @@ function onRemarkChange(key,val){const mr=getMatRemarks(activeMaterial);mr[key]=
 function onSimpleSel(key,val){const ms=getMatSelections(activeMaterial);ms[key]=val;simpleManual[key]=false;const el=document.getElementById('sel-'+key);if(el){el.classList.toggle('filled',!!val)}updateStats();autoSave()}
 function onSimpleInp(key,val){const ms=getMatSelections(activeMaterial);ms[key]=val;simpleManual[key]=true;const el=document.getElementById('inp-'+key);if(el){el.classList.toggle('filled',!!val)}updateStats();autoSave()}
 function toggleSimple(key){simpleManual[key]=!simpleManual[key];const s=document.getElementById('sel-'+key);const i=document.getElementById('inp-'+key);if(!s||!i)return;if(s.style.display==='none'){s.style.display='';i.style.display='none'}else{s.style.display='none';i.style.display=''}}
+function onSelectKeydown(e,key,hasSlash){
+if(e.key==='Delete'){e.preventDefault();const s=document.getElementById('sel-'+key);if(s){s.value='';s.classList.remove('filled');onSimpleSel(key,'')}}
+if(e.key==='Backspace'&&hasSlash){e.preventDefault();const s=document.getElementById('sel-'+key);if(s){s.value='/';s.classList.add('filled');onSimpleSel(key,'/')}}
+}
 
 function onCpdSel(key,fi,val){
 const ms=getMatSelections(activeMaterial);let v=ms[key];
