@@ -644,14 +644,14 @@ const file=e.target.files[0];if(!file)return;if(typeof XLSX==='undefined'){showT
 const r=new FileReader();r.onload=function(ev){
 try{const wb=XLSX.read(ev.target.result,{type:'array'});let ti=0;const sns=wb.SheetNames;
 const lm={};MODULES.forEach((mod,mi)=>{mod.items.forEach((it,ii)=>{lm[mod.module+'|'+it.item]={mi,ii}})});
-sns.forEach(sn=>{let matIdx=-1;for(let i=0;i<MATERIALS.length;i++){if(sn.startsWith(MATERIALS[i])||sn===MATERIALS[i]){matIdx=i;break}}if(matIdx<0)matIdx=0;
+let nm=0;sns.forEach(sn=>{let matIdx=-1;for(let i=0;i<MATERIALS.length;i++){if(sn.startsWith(MATERIALS[i])||sn===MATERIALS[i]){matIdx=i;break}}if(matIdx<0){matIdx=MATERIALS.length;MATERIALS.push(sn);nm++}
 const ws=wb.Sheets[sn];const json=XLSX.utils.sheet_to_json(ws,{header:1});const ms=getMatSelections(matIdx);const mr=getMatRemarks(matIdx);
 let sr=-1;for(let i=0;i<json.length;i++){if(json[i]&&json[i][0]==='模块'&&json[i][1]==='变量'){sr=i+1;break}}if(sr<0)return;
 let imp=0,prevMod='';for(let i=sr;i<json.length;i++){const row=json[i];if(!row||row.length<2)continue;let mn=String(row[0]||'').trim();if(!mn)mn=prevMod;else prevMod=mn;const in_=String(row[1]||'').trim();const vs=String(row[2]||'').trim();const rm=String(row[3]||'').trim();if(!mn||!in_)continue;const lk=mn+'|'+in_;const f=lm[lk];if(!f)continue;const key=makeKey(f.mi,f.ii);const it=MODULES[f.mi].items[f.ii];
 if(vs&&it.compound){let fields;const sep=it.compound.sep||'+';if(it.compound.has_model!==false&&vs.includes(':')){const ci=vs.indexOf(':');fields=vs.substring(ci+1).split(sep)}else{fields=vs.split(sep)}if(fields.length===it.compound.n_fields){ms[key]={fields:fields,manual:false}}else{ms[key]=vs}}else if(vs){const ex=ms[key];if(ex!==undefined&&ex!==''){if(Array.isArray(ex)){if(!ex.includes(vs))ex.push(vs)}else{ms[key]=[ex,vs];multiSelect[key]=true}}else{if(multiSelect[key]){ms[key]=[vs]}else{ms[key]=vs}}}
 if(rm)mr[key]=rm;
 imp++}ti+=imp});
-renderCurrent();updateStats();autoSave();showToast('成功导入 '+ti+' 项配置，涵盖 '+sns.length+' 个物料')}catch(err){console.error(err);showToast('导入失败: '+err.message)}
+renderCurrent();updateStats();autoSave();const nmMsg=nm>0?'，自动新建 '+nm+' 个物料':'';showToast('成功导入 '+ti+' 项配置，涵盖 '+sns.length+' 个物料'+nmMsg)}catch(err){console.error(err);showToast('导入失败: '+err.message)}
 };r.readAsArrayBuffer(file);e.target.value=''
 }
 
