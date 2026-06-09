@@ -216,13 +216,14 @@ function makeKey(mi,ii){return mi+'-'+ii}
 
 function init(){
 loadCustomConfig();
-try{const s=localStorage.getItem(AUTOSAVE_KEY);if(s){const st=JSON.parse(s);if(st.selections)selections=st.selections;if(st.remarks)remarks=st.remarks;if(st.activeMaterial!==undefined)activeMaterial=st.activeMaterial;if(st.materials&&Array.isArray(st.materials)&&st.materials.length)MATERIALS=st.materials;if(st.multiSelect)multiSelect=st.multiSelect}}catch(e){}
+try{const s=localStorage.getItem(AUTOSAVE_KEY);if(s){const st=JSON.parse(s);if(st.selections)selections=st.selections;if(st.remarks)remarks=st.remarks;if(st.activeMaterial!==undefined)activeMaterial=st.activeMaterial;if(st.materials&&Array.isArray(st.materials)&&st.materials.length)MATERIALS=st.materials;if(st.multiSelect){const msv=Object.values(st.multiSelect);if(msv.length>0&&typeof msv[0]==='boolean'){multiSelect={'0':st.multiSelect}}else{multiSelect=st.multiSelect}}}}catch(e){}
 initMaterialTabs();renderCurrent();updateStats();
 setInterval(autoSave,10000);window.addEventListener('beforeunload',autoSave);
 }
 
 function getMatSelections(mi){if(!selections[mi])selections[mi]={};return selections[mi]}
 function getMatRemarks(mi){if(!remarks[mi])remarks[mi]={};return remarks[mi]}
+function getMatMultiSelect(mi){if(!multiSelect[mi])multiSelect[mi]={};return multiSelect[mi]}
 function getRemark(key){const mr=getMatRemarks(activeMaterial);return mr[key]||''}
 
 function initMaterialTabs(){
@@ -339,7 +340,8 @@ mod.items.forEach((it,ii)=>{
 const key=makeKey(mi,ii);const v=ms[key];
 const itl=escHtml(it.item).toLowerCase();const all=getAllItemText(it).toLowerCase();
 h+='<tr data-key="'+key+'" data-item="'+itl+'" data-all="'+all+'">';
-h+='<td class="item-label">'+escHtml(it.item)+(it.compound?'<span class="compound-badge">◆分支</span>':' <span class="multi-toggle'+(multiSelect[key]?' on':'')+'" onclick="toggleMulti(\''+key+'\','+mi+','+ii+')">'+(multiSelect[key]?'☑':'☐')+' 多选</span>')+'</td>';
+const mms=getMatMultiSelect(activeMaterial);
+h+='<td class="item-label">'+escHtml(it.item)+(it.compound?'<span class="compound-badge">◆分支</span>':' <span class="multi-toggle'+(mms[key]?' on':'')+'" onclick="toggleMulti(\''+key+'\','+mi+','+ii+')">'+(mms[key]?'☑':'☐')+' 多选</span>')+'</td>';
 h+='<td class="item-fields">';
 if(it.compound)h+=renderCpd(it,mi,ii,v);
 else h+=renderSimple(it,mi,ii,v);
@@ -355,7 +357,7 @@ function isFilled(v){if(!v)return false;if(Array.isArray(v))return v.length>0;if
 function getAllItemText(it){let t=it.item;it.options.forEach(o=>{t+=' '+o});return t}
 
 function renderSimple(it,mi,ii,v){
-const key=makeKey(mi,ii);const isMulti=!!multiSelect[key];
+const key=makeKey(mi,ii);const mms2=getMatMultiSelect(activeMaterial);const isMulti=!!mms2[key];
 if(isMulti){
 const arr=Array.isArray(v)?v:[];
 let h='<div class="multi-check-actions">';
@@ -441,9 +443,9 @@ return all.filter(v=>vs.has(v))
 function buildCpdResult(cpd,fields){if(fields.every(f=>f===''))return null;return cpd.model_lookup[fields.join('|')]||null}
 
 function toggleMulti(key,mi,ii){
-multiSelect[key]=!multiSelect[key];
-// Clear current value when switching to multi-select
-if(multiSelect[key]){const ms=getMatSelections(activeMaterial);if(typeof ms[key]==='string')ms[key]=[]}
+const mms=getMatMultiSelect(activeMaterial);
+mms[key]=!mms[key];
+if(mms[key]){const ms=getMatSelections(activeMaterial);if(typeof ms[key]==='string')ms[key]=[]}
 else{const ms=getMatSelections(activeMaterial);if(Array.isArray(ms[key]))ms[key]=ms[key].join('、')}
 renderCurrent();updateStats();autoSave()
 }
@@ -645,10 +647,11 @@ const r=new FileReader();r.onload=function(ev){
 try{const wb=XLSX.read(ev.target.result,{type:'array'});let ti=0;const sns=wb.SheetNames;
 const lm={};MODULES.forEach((mod,mi)=>{mod.items.forEach((it,ii)=>{lm[mod.module+'|'+it.item]={mi,ii}})});
 let nm=0;sns.forEach(sn=>{let matIdx=-1;for(let i=0;i<MATERIALS.length;i++){if(sn.startsWith(MATERIALS[i])||sn===MATERIALS[i]){matIdx=i;break}}if(matIdx<0){matIdx=MATERIALS.length;MATERIALS.push(sn);nm++}
+const mmsImp=getMatMultiSelect(matIdx);
 const ws=wb.Sheets[sn];const json=XLSX.utils.sheet_to_json(ws,{header:1});const ms=getMatSelections(matIdx);const mr=getMatRemarks(matIdx);
 let sr=-1;for(let i=0;i<json.length;i++){if(json[i]&&json[i][0]==='模块'&&json[i][1]==='变量'){sr=i+1;break}}if(sr<0)return;
 let imp=0,prevMod='';for(let i=sr;i<json.length;i++){const row=json[i];if(!row||row.length<2)continue;let mn=String(row[0]||'').trim();if(!mn)mn=prevMod;else prevMod=mn;const in_=String(row[1]||'').trim();const vs=String(row[2]||'').trim();const rm=String(row[3]||'').trim();if(!mn||!in_)continue;const lk=mn+'|'+in_;const f=lm[lk];if(!f)continue;const key=makeKey(f.mi,f.ii);const it=MODULES[f.mi].items[f.ii];
-if(vs&&it.compound){let fields;const sep=it.compound.sep||'+';if(it.compound.has_model!==false&&vs.includes(':')){const ci=vs.indexOf(':');fields=vs.substring(ci+1).split(sep)}else{fields=vs.split(sep)}if(fields.length===it.compound.n_fields){ms[key]={fields:fields,manual:false}}else{ms[key]=vs}}else if(vs){const ex=ms[key];if(ex!==undefined&&ex!==''){if(Array.isArray(ex)){if(!ex.includes(vs))ex.push(vs)}else{ms[key]=[ex,vs];multiSelect[key]=true}}else{if(multiSelect[key]){ms[key]=[vs]}else{ms[key]=vs}}}
+if(vs&&it.compound){let fields;const sep=it.compound.sep||'+';if(it.compound.has_model!==false&&vs.includes(':')){const ci=vs.indexOf(':');fields=vs.substring(ci+1).split(sep)}else{fields=vs.split(sep)}if(fields.length===it.compound.n_fields){ms[key]={fields:fields,manual:false}}else{ms[key]=vs}}else if(vs){const ex=ms[key];if(ex!==undefined&&ex!==''){if(Array.isArray(ex)){if(!ex.includes(vs))ex.push(vs)}else{ms[key]=[ex,vs];mmsImp[key]=true}}else{ms[key]=vs}}
 if(rm)mr[key]=rm;
 imp++}ti+=imp});
 renderCurrent();updateStats();autoSave();const nmMsg=nm>0?'，自动新建 '+nm+' 个物料':'';showToast('成功导入 '+ti+' 项配置，涵盖 '+sns.length+' 个物料'+nmMsg)}catch(err){console.error(err);showToast('导入失败: '+err.message)}
@@ -675,11 +678,13 @@ MODULES=modules;
 document.getElementById('moduleCount').textContent=MODULES.length;
 document.getElementById('resetConfigBtn').style.display='';
 const mr=mergeOldSelections(oldMods,oldSels,oldRems,oldMs,modules);
-selections=mr.selections;remarks=mr.remarks;multiSelect=mr.multiSelect;simpleManual={};activeMaterial=0;
+selections=mr.selections;remarks=mr.remarks;simpleManual={};activeMaterial=0;
+multiSelect={};for(let mi=0;mi<MATERIALS.length;mi++)multiSelect[mi]={...mr.multiSelect};
 renderCurrent();updateStats();autoSave();
 showToast('已更新：保留 '+mr.ok+' 项，清除 '+mr.drop+' 项（不兼容）')
 }
 function mergeOldSelections(oldMods,oldSels,oldRems,oldMs,newMods){
+const flatMs={};const msv=Object.values(oldMs);if(msv.length>0&&typeof msv[0]==='object'&&msv[0]!==null){for(const mk of Object.keys(oldMs))Object.assign(flatMs,oldMs[mk])}else Object.assign(flatMs,oldMs);
 const idx={};oldMods.forEach((m,mi)=>{m.items.forEach((it,ii)=>{const k=mi+'-'+ii;idx[m.module+'||'+it.item]={key:k,opts:it.options&&[...it.options]||[],cpd:!!it.compound}})});
 let ok=0,drop=0;
 const ns={};const nr={};const nms={};
@@ -691,7 +696,7 @@ for(const mat of mats){
 if(oldSels[mat]&&oldSels[mat][m.key]!==undefined){if(!ns[mat])ns[mat]={};ns[mat][nk]=oldSels[mat][m.key];ok++}
 if(oldRems[mat]&&oldRems[mat][m.key]){if(!nr[mat])nr[mat]={};nr[mat][nk]=oldRems[mat][m.key]}
 }
-nms[nk]=oldMs[m.key];
+nms[nk]=flatMs[m.key];
 return
 }
 const newOpts=it.options||[];
@@ -703,7 +708,7 @@ else if(typeof ov==='string'&&newOpts.includes(ov))keep=ov;
 if(keep){if(!ns[mat])ns[mat]={};ns[mat][nk]=keep;ok++}else drop++
 if(oldRems[mat]&&oldRems[mat][m.key]){if(!nr[mat])nr[mat]={};nr[mat][nk]=oldRems[mat][m.key]}
 }
-nms[nk]=oldMs[m.key]
+nms[nk]=flatMs[m.key]
 }
 })});
 return{selections:ns,remarks:nr,multiSelect:nms,ok,drop}
