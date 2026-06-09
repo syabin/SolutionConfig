@@ -462,6 +462,8 @@ ms[key]=checked.concat(manualParts);
 updateStats();autoSave()
 }
 function onRemarkChange(key,val){const mr=getMatRemarks(activeMaterial);mr[key]=val;autoSave()}
+function onSimpleSel(key,val){const ms=getMatSelections(activeMaterial);ms[key]=val;simpleManual[key]=false;const el=document.getElementById('sel-'+key);if(el){el.classList.toggle('filled',!!val)}updateStats();autoSave()}
+function onSimpleInp(key,val){const ms=getMatSelections(activeMaterial);ms[key]=val;simpleManual[key]=true;const el=document.getElementById('inp-'+key);if(el){el.classList.toggle('filled',!!val)}updateStats();autoSave()}
 function toggleSimple(key){simpleManual[key]=!simpleManual[key];const s=document.getElementById('sel-'+key);const i=document.getElementById('inp-'+key);if(!s||!i)return;if(s.style.display==='none'){s.style.display='';i.style.display='none'}else{s.style.display='none';i.style.display=''}}
 
 function onCpdSel(key,fi,val){
