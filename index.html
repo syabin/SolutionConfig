@@ -151,7 +151,6 @@ body{font-family:-apple-system,"Microsoft YaHei","Segoe UI",sans-serif;backgroun
     <button class="btn btn-outline btn-sm" onclick="expandAll()">展开全部</button>
     <button class="btn btn-outline btn-sm" onclick="collapseAll()">折叠全部</button>
     <div class="header-sep"></div>
-    <button class="btn btn-outline btn-sm" onclick="copyToAll()">复制到全部物料</button>
     <button class="btn btn-outline btn-sm" onclick="clearCurrent()">清空当前物料</button>
     <div class="header-sep"></div>
     <button class="btn btn-outline btn-sm" onclick="copyConfig()" title="将当前物料配置复制为JSON">复制配置</button>
@@ -566,13 +565,14 @@ initMaterialTabs()
 }
 
 function clearCurrent(){const ms=getMatSelections(activeMaterial);const c=Object.values(ms).filter(v=>isFilled(v)).length;if(c===0){showToast('没有已选项目');return}showModal('清空当前物料','确定要清空 "'+MATERIALS[activeMaterial]+'" 的全部 '+c+' 个已选项目吗？',()=>{selections[activeMaterial]={};remarks[activeMaterial]={};simpleManual={};renderCurrent();updateStats();autoSave();showToast('已清空')})}
-function copyToAll(){const src=getMatSelections(activeMaterial);const c=Object.values(src).filter(v=>isFilled(v)).length;if(c===0){showToast('当前物料没有已选项目');return}showModal('复制到全部物料','确定将 "'+MATERIALS[activeMaterial]+'" 的 '+c+' 项配置复制到所有 '+MATERIALS.length+' 个物料？',()=>{const sc=JSON.parse(JSON.stringify(src));const rc=remarks[activeMaterial]?JSON.parse(JSON.stringify(remarks[activeMaterial])):null;for(let i=0;i<MATERIALS.length;i++){if(i===activeMaterial)continue;selections[i]=JSON.parse(JSON.stringify(sc));if(rc)remarks[i]=JSON.parse(JSON.stringify(rc))}showToast('已复制到全部物料');updateStats();autoSave()})}
 
 function copyConfig(){
 const ms=getMatSelections(activeMaterial);const mr=getMatRemarks(activeMaterial);
-const data={selections:ms,remarks:mr,material:MATERIALS[activeMaterial]};
+const fk=getFilteredKeys();let s=ms,r=mr;
+if(fk){s={};r={};fk.forEach(k=>{if(ms[k]!==undefined)s[k]=ms[k];if(mr[k])r[k]=mr[k]})}
+const data={selections:s,remarks:r,material:MATERIALS[activeMaterial],filtered:!!fk};
 const json=JSON.stringify(data);
-if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(json).then(()=>showToast('配置已复制到剪贴板')).catch(()=>fallbackCopy(json))}else{fallbackCopy(json)}
+if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(json).then(()=>showToast('配置已复制到剪贴板'+(fk?(' ('+fk.length+'项)'):''))).catch(()=>fallbackCopy(json))}else{fallbackCopy(json)}
 }
 function fallbackCopy(text){
 const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
@@ -585,15 +585,27 @@ navigator.clipboard.readText().then(text=>{
 try{
 const data=JSON.parse(text);
 if(!data||typeof data!=='object'||!data.selections){showToast('剪贴板内容不是有效配置');return}
-showModal('粘贴配置','确定将剪贴板中的配置粘贴到当前物料 "'+MATERIALS[activeMaterial]+'" 吗？（当前配置将被覆盖）',()=>{
+const fk=getFilteredKeys();
+showModal('粘贴配置','确定将剪贴板中的配置粘贴到当前物料 "'+MATERIALS[activeMaterial]+'" 吗？'+(fk?'（仅更新筛选出的 '+fk.length+' 项）':'（当前配置将被覆盖）'),()=>{
+if(fk){
+const ms=getMatSelections(activeMaterial);const mr=getMatRemarks(activeMaterial);
+fk.forEach(k=>{if(data.selections[k]!==undefined)ms[k]=data.selections[k];if(data.remarks&&data.remarks[k])mr[k]=data.remarks[k]})
+}else{
 selections[activeMaterial]=JSON.parse(JSON.stringify(data.selections));
 if(data.remarks)remarks[activeMaterial]=JSON.parse(JSON.stringify(data.remarks));
+}
 renderCurrent();updateStats();autoSave();showToast('配置已粘贴')
 })
 }catch(e){showToast('剪贴板内容不是有效JSON')}
 }).catch(()=>showToast('无法读取剪贴板'))
 }
 
+function getFilteredKeys(){
+const q=document.getElementById('filterInput').value.trim();if(!q)return null;
+const keys=new Set();
+document.querySelectorAll('.config-table tr[data-key]:not(.filtered-out)').forEach(tr=>keys.add(tr.dataset.key));
+return keys.size?[...keys]:null
+}
 function applyFilter(){
 const q=document.getElementById('filterInput').value.toLowerCase().trim();const fc=document.getElementById('filterCount');const fcb=document.getElementById('filterClear');
 if(!q){document.querySelectorAll('.config-table tr').forEach(tr=>tr.classList.remove('filtered-out'));document.querySelectorAll('.accordion').forEach(acc=>acc.style.display='');fc.textContent='';fcb.style.display='none';return}
