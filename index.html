@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>溶液系统配置工具</title>
-<script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" onerror="console.warn('XLSX CDN failed')"></script>
+<script async src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js" onerror="console.warn('XLSX CDN failed')"></script>
 <style>
 :root{--primary:#2563eb;--primary-hover:#1d4ed8;--primary-light:#eff6ff;--danger:#dc2626;--danger-hover:#b91c1c;--success:#16a34a;--success-light:#f0fdf4;--warning:#f59e0b;--warning-light:#fffbeb;--bg:#f1f5f9;--card:#ffffff;--border:#e2e8f0;--text:#1e293b;--text-secondary:#64748b;--text-muted:#94a3b8}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -388,21 +388,24 @@ function renderCpd(it,mi,ii,v){
 const key=makeKey(mi,ii);const cpd=it.compound;
 const flds=(v&&v.fields)?v.fields:new Array(cpd.n_fields).fill('');
 const isM=v&&v.manual;
+const sep=cpd.sep||'+';
 let h='<div class="compound-row" id="cpd-'+key+'">';
 
-// Normal panel: model dropdown + sub-fields
+// Normal panel
 h+='<div id="cpd-normal-'+key+'" style="display:'+(isM?'none':'flex')+';flex-direction:column;gap:3px;flex:1;min-width:0">';
-// Model select wrapper: native select hidden, visible display shows model name only
+if(cpd.has_model!==false){
+// Model select (with : prefix format)
 const curKey=flds.join('|');const hasModel=!!cpd.model_lookup[curKey];
 const dispModel=hasModel?cpd.model_lookup[curKey]:'';
 h+='<div class="cpd-model-wrap">';
 h+='<select id="cpd-model-'+key+'" onchange="onCpdModel(\''+key+'\',this.value)" class="cpd-model-sel-native" title="选择型号"><option value="">-- 请选择型号 --</option>';
 cpd.combos.forEach(co=>{
 const sel=curKey===co.fields.join('|')?' selected':'';
-h+='<option value="'+escAttr(co.fields.join('|'))+'"'+sel+'>'+escHtml(co.model+' : '+co.fields.join('+'))+'</option>'});
+h+='<option value="'+escAttr(co.fields.join('|'))+'"'+sel+'>'+escHtml(co.model+sep+co.fields.join(sep))+'</option>'});
 h+='</select>';
-h+='<div class="cpd-model-display'+(hasModel?' filled':'')+'" id="cpd-model-disp-'+key+'" onclick="var s=document.getElementById(\'cpd-model-'+key+'\');if(s.showPicker)s.showPicker();else{s.focus();s.click()}" title="'+(hasModel?escAttr(dispModel+' : '+flds.join('+')):'选择型号')+'">'+(hasModel?escHtml(dispModel):'-- 请选择型号 --')+'</div>';
-h+='</div>';
+h+='<div class="cpd-model-display'+(hasModel?' filled':'')+'" id="cpd-model-disp-'+key+'" onclick="document.getElementById(\'cpd-model-'+key+'\').showPicker()" title="'+(hasModel?escAttr(dispModel+sep+flds.join(sep)):'选择型号')+'">'+(hasModel?escHtml(dispModel):'-- 请选择型号 --')+'</div>';
+h+='</div>'
+}
 // Sub-fields
 h+='<div class="cpd-subfields">';
 cpd.field_names.forEach((fn,fi)=>{
@@ -412,13 +415,14 @@ h+='<select id="cpd-sel-'+key+'-'+fi+'" onchange="onCpdSel(\''+key+'\','+fi+',th
 h+='<option value="">--</option>';
 vv.forEach(o=>{h+='<option value="'+escAttr(o)+'"'+(fv===o?' selected':'')+'>'+escHtml(o)+'</option>'});
 h+='</select></div>';
-if(fi<cpd.n_fields-1)h+='<span class="compound-sep">+</span>'
+if(fi<cpd.n_fields-1)h+='<span class="compound-sep">'+escHtml(sep)+'</span>'
 });
 h+='</div></div>';
 
 // Manual panel: single text input
-const manualVal=flds.join('+');
-h+='<input type="text" id="cpd-manual-'+key+'" value="'+escAttr(manualVal)+'" placeholder="手动输入，用+分隔" onchange="onCpdManual(\''+key+'\',this.value)" class="cpd-manual-inp'+(manualVal?' filled':'')+'" style="display:'+(isM?'':'none')+'">';
+const manualVal=flds.join(sep);
+const manualHint=sep==='\uff0c'?'手动输入，用，分隔':'手动输入，用+分隔';
+h+='<input type="text" id="cpd-manual-'+key+'" value="'+escAttr(manualVal)+'" placeholder="'+manualHint+'" onchange="onCpdManual(\''+key+'\',this.value)" class="cpd-manual-inp'+(manualVal?' filled':'')+'" style="display:'+(isM?'':'none')+'">';
 
 h+='<button class="cpd-input-toggle" onclick="toggleCpd(\''+key+'\')">'+(isM?'▼':'<span style="font-size:11px">✎</span>')+'</button>';
 h+='</div>';return h
@@ -512,8 +516,9 @@ ms[key]=v;refreshCpd(key,v);updateStats();autoSave()
 function onCpdManual(key,val){
 const ms=getMatSelections(activeMaterial);let v=ms[key];
 const[mi,ii]=key.split('-').map(Number);const it=MODULES[mi].items[ii];
+const sep=it.compound.sep||'+';
 if(!v||typeof v==='string')v={fields:new Array(it.compound.n_fields).fill(''),manual:true};
-v.fields=val.split('+');v.manual=true;
+v.fields=val.split(sep);v.manual=true;
 ms[key]=v;refreshCpd(key,v);updateStats();autoSave()
 }
 
@@ -523,20 +528,20 @@ function refreshCpd(key,v){
 const[mi,ii]=key.split('-').map(Number);const it=MODULES[mi].items[ii];if(!it||!it.compound)return;
 const cpd=it.compound;const flds=(v&&v.fields)?v.fields:new Array(cpd.n_fields).fill('');const isM=v&&v.manual;
 
+const sep=cpd.sep||'+';
 // Update manual input
 const manInp=document.getElementById('cpd-manual-'+key);
-if(manInp){manInp.value=flds.join('+');manInp.style.display=isM?'':'none'}
+if(manInp){manInp.value=flds.join(sep);manInp.style.display=isM?'':'none'}
 
 // Update normal panel visibility
 const normal=document.getElementById('cpd-normal-'+key);
 if(normal)normal.style.display=isM?'none':'flex';
 
-// Update model dropdown selection
+// Update model dropdown / display (only for has_model compounds)
 const modelSel=document.getElementById('cpd-model-'+key);
 if(modelSel){const cur=flds.join('|');let found=false;for(let i=0;i<modelSel.options.length;i++){if(modelSel.options[i].value===cur){modelSel.selectedIndex=i;found=true;break}}if(!found)modelSel.selectedIndex=0;const hasModel=cur!==''&&!!cpd.model_lookup[cur];modelSel.className='cpd-model-sel-native'}
-// Update display div
 const disp=document.getElementById('cpd-model-disp-'+key);
-if(disp){const cur=flds.join('|');const hasModel=cur!==''&&!!cpd.model_lookup[cur];if(hasModel){disp.textContent=cpd.model_lookup[cur];disp.className='cpd-model-display filled';disp.title=cpd.model_lookup[cur]+' : '+flds.join('+')}else{disp.textContent='-- 请选择型号 --';disp.className='cpd-model-display';disp.title='选择型号'}}
+if(disp){const cur=flds.join('|');const hasModel=cur!==''&&!!cpd.model_lookup[cur];if(hasModel){disp.textContent=cpd.model_lookup[cur];disp.className='cpd-model-display filled';disp.title=cpd.model_lookup[cur]+sep+flds.join(sep)}else{disp.textContent='-- 请选择型号 --';disp.className='cpd-model-display';disp.title='选择型号'}}
 
 // Update field dropdowns
 for(let fi=0;fi<cpd.n_fields;fi++){
@@ -624,9 +629,11 @@ MATERIALS.forEach((mat,matIdx)=>{
 const ms=getMatSelections(matIdx);const mr=getMatRemarks(matIdx);const rows=[];
 const merges=[];const pi=[['模块','变量','参数','备注']];
 const hdrLen=pi.length;
-MODULES.forEach((mod,mi)=>{const sr=rows.length;mod.items.forEach((it,ii)=>{const key=makeKey(mi,ii);const v=ms[key];const rm=mr[key]||'';if(v&&Array.isArray(v)&&v.length>0){const vsr=rows.length;v.forEach((val,vi)=>{const mc=(ii===0&&vi===0)?mod.module:'';rows.push([mc,it.item,val,vi===0?rm:''])});const vnr=rows.length-vsr;if(vnr>1)merges.push({s:{r:hdrLen+vsr,c:1},e:{r:hdrLen+vsr+vnr-1,c:1}})}else{let vs='';if(v){if(Array.isArray(v)){vs=v.join('、')}else if(typeof v==='string'){vs=v}else if(v.fields){vs=v.fields.join('+');if(it.compound){const m=buildCpdResult(it.compound,v.fields);if(m)vs=m+':'+vs}}}rows.push([ii===0?mod.module:'',it.item,vs,rm])}});const nr=rows.length-sr;if(nr>1)merges.push({s:{r:hdrLen+sr,c:0},e:{r:hdrLen+sr+nr-1,c:0}})});
+MODULES.forEach((mod,mi)=>{const sr=rows.length;mod.items.forEach((it,ii)=>{const key=makeKey(mi,ii);const v=ms[key];const rm=mr[key]||'';if(v&&Array.isArray(v)&&v.length>0){const vsr=rows.length;v.forEach((val,vi)=>{const mc=(ii===0&&vi===0)?mod.module:'';rows.push([mc,it.item,val,vi===0?rm:''])});const vnr=rows.length-vsr;if(vnr>1)merges.push({s:{r:hdrLen+vsr,c:1},e:{r:hdrLen+vsr+vnr-1,c:1}})}else{let vs='';if(v){if(Array.isArray(v)){vs=v.join('、')}else if(typeof v==='string'){vs=v}else if(v.fields){const sep=it.compound.sep||'+';vs=v.fields.join(sep);if(it.compound&&it.compound.has_model!==false){const m=buildCpdResult(it.compound,v.fields);if(m)vs=m+':'+vs}}}rows.push([ii===0?mod.module:'',it.item,vs,rm])}});const nr=rows.length-sr;if(nr>1)merges.push({s:{r:hdrLen+sr,c:0},e:{r:hdrLen+sr+nr-1,c:0}})});
 const data=[...pi,...rows];const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=[{wch:26},{wch:38},{wch:70},{wch:40}];
-if(merges.length)ws['!merges']=merges;
+const thinBorder={top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}};
+for(let r=0;r<data.length;r++)for(let c=0;c<4;c++){const a=XLSX.utils.encode_cell({r,c});if(!ws[a])ws[a]={t:'s',v:''};ws[a].s=ws[a].s||{};ws[a].s.border=thinBorder}
+if(merges.length){ws['!merges']=merges;merges.forEach(m=>{const a=XLSX.utils.encode_cell({r:m.s.r,c:m.s.c});ws[a].s=ws[a].s||{};ws[a].s.alignment=ws[a].s.alignment||{};ws[a].s.alignment.vertical='center'})}
 const sn=mat.replace(/[\\\/\*\?\:\[\]]/g,'').substring(0,31);XLSX.utils.book_append_sheet(wb,ws,sn)
 });
 const fn='溶液系统配置_'+new Date().toISOString().slice(0,10)+'.xlsx';XLSX.writeFile(wb,fn);showToast('导出成功: '+fn)
@@ -641,7 +648,7 @@ sns.forEach(sn=>{let matIdx=-1;for(let i=0;i<MATERIALS.length;i++){if(sn.startsW
 const ws=wb.Sheets[sn];const json=XLSX.utils.sheet_to_json(ws,{header:1});const ms=getMatSelections(matIdx);const mr=getMatRemarks(matIdx);
 let sr=-1;for(let i=0;i<json.length;i++){if(json[i]&&json[i][0]==='模块'&&json[i][1]==='变量'){sr=i+1;break}}if(sr<0)return;
 let imp=0,prevMod='';for(let i=sr;i<json.length;i++){const row=json[i];if(!row||row.length<2)continue;let mn=String(row[0]||'').trim();if(!mn)mn=prevMod;else prevMod=mn;const in_=String(row[1]||'').trim();const vs=String(row[2]||'').trim();const rm=String(row[3]||'').trim();if(!mn||!in_)continue;const lk=mn+'|'+in_;const f=lm[lk];if(!f)continue;const key=makeKey(f.mi,f.ii);const it=MODULES[f.mi].items[f.ii];
-if(vs&&it.compound){let fields;if(vs.includes(':')){const parts=vs.split(':');fields=parts.slice(1).join(':').split('+')}else{fields=vs.split('+')}if(fields.length===it.compound.n_fields){ms[key]={fields:fields,manual:false}}else{ms[key]=vs}}else if(vs){const ex=ms[key];if(ex!==undefined&&ex!==''){if(Array.isArray(ex)){if(!ex.includes(vs))ex.push(vs)}else{ms[key]=[ex,vs];multiSelect[key]=true}}else{if(multiSelect[key]){ms[key]=[vs]}else{ms[key]=vs}}}
+if(vs&&it.compound){let fields;const sep=it.compound.sep||'+';if(it.compound.has_model!==false&&vs.includes(':')){const ci=vs.indexOf(':');fields=vs.substring(ci+1).split(sep)}else{fields=vs.split(sep)}if(fields.length===it.compound.n_fields){ms[key]={fields:fields,manual:false}}else{ms[key]=vs}}else if(vs){const ex=ms[key];if(ex!==undefined&&ex!==''){if(Array.isArray(ex)){if(!ex.includes(vs))ex.push(vs)}else{ms[key]=[ex,vs];multiSelect[key]=true}}else{if(multiSelect[key]){ms[key]=[vs]}else{ms[key]=vs}}}
 if(rm)mr[key]=rm;
 imp++}ti+=imp});
 renderCurrent();updateStats();autoSave();showToast('成功导入 '+ti+' 项配置，涵盖 '+sns.length+' 个物料')}catch(err){console.error(err);showToast('导入失败: '+err.message)}
@@ -663,12 +670,45 @@ try{const cc=localStorage.getItem('solutionConfig_custom');if(cc){const p=JSON.p
 }
 function saveCustomConfig(modules){
 localStorage.setItem('solutionConfig_custom',JSON.stringify({modules}));
+const oldMods=MODULES;const oldSels=JSON.parse(JSON.stringify(selections));const oldRems=JSON.parse(JSON.stringify(remarks));const oldMs=JSON.parse(JSON.stringify(multiSelect));
 MODULES=modules;
 document.getElementById('moduleCount').textContent=MODULES.length;
 document.getElementById('resetConfigBtn').style.display='';
-selections={};remarks={};simpleManual={};activeMaterial=0;
-renderCurrent();updateStats();autoSave()
+const mr=mergeOldSelections(oldMods,oldSels,oldRems,oldMs,modules);
+selections=mr.selections;remarks=mr.remarks;multiSelect=mr.multiSelect;simpleManual={};activeMaterial=0;
+renderCurrent();updateStats();autoSave();
+showToast('已更新：保留 '+mr.ok+' 项，清除 '+mr.drop+' 项（不兼容）')
 }
+function mergeOldSelections(oldMods,oldSels,oldRems,oldMs,newMods){
+const idx={};oldMods.forEach((m,mi)=>{m.items.forEach((it,ii)=>{const k=mi+'-'+ii;idx[m.module+'||'+it.item]={key:k,opts:it.options&&[...it.options]||[],cpd:!!it.compound}})});
+let ok=0,drop=0;
+const ns={};const nr={};const nms={};
+const mats=new Set(Object.keys(oldSels));for(const m of Object.keys(oldRems))mats.add(m);
+newMods.forEach((mod,mi)=>{mod.items.forEach((it,ii)=>{const nk=mi+'-'+ii;const m=idx[mod.module+'||'+it.item];
+if(m){
+if(arraysEqual(m.opts,it.options||[])){
+for(const mat of mats){
+if(oldSels[mat]&&oldSels[mat][m.key]!==undefined){if(!ns[mat])ns[mat]={};ns[mat][nk]=oldSels[mat][m.key];ok++}
+if(oldRems[mat]&&oldRems[mat][m.key]){if(!nr[mat])nr[mat]={};nr[mat][nk]=oldRems[mat][m.key]}
+}
+nms[nk]=oldMs[m.key];
+return
+}
+const newOpts=it.options||[];
+for(const mat of mats){
+const ov=oldSels[mat]&&oldSels[mat][m.key];if(ov===undefined)continue;
+let keep=null;
+if(Array.isArray(ov)){const v=ov.filter(o=>newOpts.includes(o));if(v.length){keep=v.length===ov.length?ov:v}}
+else if(typeof ov==='string'&&newOpts.includes(ov))keep=ov;
+if(keep){if(!ns[mat])ns[mat]={};ns[mat][nk]=keep;ok++}else drop++
+if(oldRems[mat]&&oldRems[mat][m.key]){if(!nr[mat])nr[mat]={};nr[mat][nk]=oldRems[mat][m.key]}
+}
+nms[nk]=oldMs[m.key]
+}
+})});
+return{selections:ns,remarks:nr,multiSelect:nms,ok,drop}
+}
+function arraysEqual(a,b){if(a.length!==b.length)return false;for(let i=0;i<a.length;i++)if(a[i]!==b[i])return false;return true}
 function clearConfigTemplate(){
 showModal('\u6e05\u9664\u914d\u7f6e\u8868','\u786e\u5b9a\u8981\u6e05\u9664\u5f53\u524d\u52a0\u8f7d\u7684\u914d\u7f6e\u8868\u6a21\u677f\u5417\uff1f\u6a21\u5757\u3001\u914d\u7f6e\u9879\u3001\u5df2\u9009\u6570\u636e\u5c06\u5168\u90e8\u6e05\u7a7a\uff0c\u7269\u6599\u5217\u8868\u4fdd\u7559\u3002',function(){
 localStorage.removeItem('solutionConfig_custom');
@@ -718,24 +758,46 @@ return {modules,totalItems,compoundCount}
 }
 function detectCompound(options){
 if(!options||options.length<3)return null;
-let colonCount=0;const parsed=[];
+
+// Path 1: model:field1+field2+...  (existing, with colon)
+let colonCount=0;const colonParsed=[];
 for(const o of options){
 if(!o.includes(':'))continue;
 colonCount++;
 const ci=o.indexOf(':');const model=o.substring(0,ci);const fs=o.substring(ci+1);
 const fields=fs.split('+').map(f=>f.trim()).filter(f=>f);
-if(fields.length>=2)parsed.push({model,fields})
+if(fields.length>=2)colonParsed.push({model,fields})
 }
-if(colonCount<Math.max(2,options.length*0.5)||parsed.length<2)return null;
-const cm={};for(const p of parsed){cm[p.fields.length]=(cm[p.fields.length]||0)+1}
+if(colonCount>=Math.max(2,options.length*0.5)&&colonParsed.length>=2){
+const cm={};for(const p of colonParsed){cm[p.fields.length]=(cm[p.fields.length]||0)+1}
 let nF=0,mc=0;for(const[k,v]of Object.entries(cm)){if(v>mc){mc=v;nF=parseInt(k)}}
-if(nF<2)return null;
-const vp=parsed.filter(p=>p.fields.length===nF);if(vp.length<2)return null;
+if(nF>=2){const vp=colonParsed.filter(p=>p.fields.length===nF);if(vp.length>=2){
 const fv=[];for(let fi=0;fi<nF;fi++){const vs=new Set();for(const p of vp)vs.add(p.fields[fi]);fv.push(Array.from(vs))}
 const fn=extractFieldNames(fv);
 const combos=[];const ml={};
 for(const p of vp){combos.push({model:p.model,fields:p.fields});ml[p.fields.join('|')]=p.model}
-return{type:'compound',n_fields:nF,field_names:fn,field_values:fv,combos:combos,model_lookup:ml}
+return{type:'compound',n_fields:nF,field_names:fn,field_values:fv,combos:combos,model_lookup:ml,has_model:true,sep:'+'}
+}}}
+
+// Path 2: field1，field2，field3...  (comma-separated, no model prefix)
+let commaCount=0;const commaParsed=[];
+for(const o of options){
+if(o.includes(':'))continue;
+const fields=o.split('\uff0c').map(f=>f.trim()).filter(f=>f);
+if(fields.length>=2){commaCount++;commaParsed.push({fields})}
+}
+if(commaCount>=Math.max(2,options.length*0.5)&&commaParsed.length>=2){
+const cm={};for(const p of commaParsed){cm[p.fields.length]=(cm[p.fields.length]||0)+1}
+let nF=0,mc=0;for(const[k,v]of Object.entries(cm)){if(v>mc){mc=v;nF=parseInt(k)}}
+if(nF>=2){const vp=commaParsed.filter(p=>p.fields.length===nF);if(vp.length>=2){
+const fv=[];for(let fi=0;fi<nF;fi++){const vs=new Set();for(const p of vp)vs.add(p.fields[fi]);fv.push(Array.from(vs))}
+const fn=extractFieldNames(fv);
+const combos=[];const ml={};
+for(const p of vp){const joined=p.fields.join('\uff0c');combos.push({model:joined,fields:p.fields});ml[p.fields.join('|')]=joined}
+return{type:'compound',n_fields:nF,field_names:fn,field_values:fv,combos:combos,model_lookup:ml,has_model:false,sep:'\uff0c'}
+}}}
+
+return null
 }
 function extractFieldNames(fv){
 const names=[];
@@ -754,7 +816,7 @@ function findCommonSuffix(arr){if(!arr||arr.length<2)return arr&&arr.length?arr[
 function findCommonPrefix(arr){if(!arr||arr.length<2)return arr&&arr.length?arr[0]:'';let p=arr[0];for(let i=1;i<arr.length;i++){const t=arr[i];let j=0;while(j<p.length&&j<t.length&&p[j]===t[j])j++;p=p.substring(0,j);if(!p)return''}return p}
 
 var _id=false;function safeInit(){if(_id)return;_id=true;init()}
-function loadXlsx(ok,fail){if(typeof XLSX!=='undefined'){ok();return}const cdns=['https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js','https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js'];let t=0;function tn(){if(t>=cdns.length){fail();return}const s=document.createElement('script');s.src=cdns[t++];s.onload=ok;s.onerror=tn;document.head.appendChild(s)}tn()}
+function loadXlsx(ok,fail){if(typeof XLSX!=='undefined'){ok();return}const cdns=['https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js','https://unpkg.com/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'];let t=0;function tn(){if(t>=cdns.length){fail();return}const s=document.createElement('script');s.src=cdns[t++];s.onload=ok;s.onerror=tn;document.head.appendChild(s)}tn()}
 document.addEventListener('DOMContentLoaded',function(){loadXlsx(function(){safeInit()},function(){console.warn('XLSX unavailable');safeInit()});setTimeout(function(){safeInit()},5000)})
 </script>
 </body>
