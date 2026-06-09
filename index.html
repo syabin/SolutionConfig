@@ -164,7 +164,6 @@ body{font-family:-apple-system,"Microsoft YaHei","Segoe UI",sans-serif;backgroun
     <button class="btn btn-outline btn-sm" onclick="clearConfigTemplate()" id="resetConfigBtn" style="display:none" title="清除已加载的配置表模板">清除配置表</button>
     <div class="header-sep"></div>
     <button class="btn btn-success btn-sm" onclick="exportExcel()">导出Excel</button>
-    <span id="autosaveTime" style="color:var(--text-muted);font-size:10px;flex-shrink:0"></span>
   </div>
 </div>
 
@@ -175,7 +174,7 @@ body{font-family:-apple-system,"Microsoft YaHei","Segoe UI",sans-serif;backgroun
   <span>配置项: <span class="count-num" id="itemCount">0</span></span>
   <span>已选: <span class="count-num" id="filledCount">0</span></span>
   <span>未选: <span class="count-num" id="emptyCount">0</span></span>
-  <span id="configSource" style="font-size:10px;color:var(--text-muted);margin-left:auto"></span>
+  <span id="autosaveTime" style="color:var(--text-muted);font-size:10px;margin-left:auto"></span>
   <div class="progress-wrap">
     <span class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar" style="width:0%"></div></span>
     <span class="progress-text" id="progressText">0%</span>
@@ -648,14 +647,13 @@ function escAttr(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').r
 
 // ===== 配置表自动识别引擎 =====
 function loadCustomConfig(){
-try{const cc=localStorage.getItem('solutionConfig_custom');if(cc){const p=JSON.parse(cc);if(p.modules&&Array.isArray(p.modules)&&p.modules.length){let valid=true;let ti=0;for(const m of p.modules){if(!m.items||!Array.isArray(m.items)){valid=false;break}ti+=m.items.length}if(valid&&ti>0){MODULES=p.modules;document.getElementById('moduleCount').textContent=MODULES.length;document.getElementById('resetConfigBtn').style.display='';document.getElementById('configSource').textContent='\u914d\u7f6e\u6a21\u677f\uff1a\u81ea\u5b9a\u4e49'}else{localStorage.removeItem('solutionConfig_custom');document.getElementById('resetConfigBtn').style.display='none';document.getElementById('configSource').textContent=''}}else{}}else{document.getElementById('resetConfigBtn').style.display='none';document.getElementById('configSource').textContent=''}}catch(e){console.warn('Custom config load failed:',e);localStorage.removeItem('solutionConfig_custom')}
+try{const cc=localStorage.getItem('solutionConfig_custom');if(cc){const p=JSON.parse(cc);if(p.modules&&Array.isArray(p.modules)&&p.modules.length){let valid=true;let ti=0;for(const m of p.modules){if(!m.items||!Array.isArray(m.items)){valid=false;break}ti+=m.items.length}if(valid&&ti>0){MODULES=p.modules;document.getElementById('moduleCount').textContent=MODULES.length;document.getElementById('resetConfigBtn').style.display='';}else{localStorage.removeItem('solutionConfig_custom');document.getElementById('resetConfigBtn').style.display='none'}}else{}}else{document.getElementById('resetConfigBtn').style.display='none'}}catch(e){console.warn('Custom config load failed:',e);localStorage.removeItem('solutionConfig_custom')}
 }
 function saveCustomConfig(modules){
 localStorage.setItem('solutionConfig_custom',JSON.stringify({modules}));
 MODULES=modules;
 document.getElementById('moduleCount').textContent=MODULES.length;
 document.getElementById('resetConfigBtn').style.display='';
-document.getElementById('configSource').textContent='\u914d\u7f6e\u8868\uff1a\u5df2\u52a0\u8f7d';
 selections={};remarks={};simpleManual={};activeMaterial=0;
 renderCurrent();updateStats();autoSave()
 }
@@ -665,7 +663,6 @@ localStorage.removeItem('solutionConfig_custom');
 MATERIALS=['\u7269\u65991'];MODULES=[];
 document.getElementById('moduleCount').textContent='0';
 document.getElementById('resetConfigBtn').style.display='none';
-document.getElementById('configSource').textContent='';
 selections={};remarks={};simpleManual={};activeMaterial=0;
 renderCurrent();updateStats();autoSave();showToast('\u5df2\u6e05\u9664\u914d\u7f6e\u8868\u6a21\u677f')
 })}
